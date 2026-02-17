@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createDockerClient } from './docker.js'
 import type { Logger } from '@yologuard/shared'
 

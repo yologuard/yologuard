@@ -1,2 +1,2 @@
-// GitHub REST client for PR creation (M6)
-export {}
+export { createGitHubClient } from './github.js'
+export { parseGitRemote } from './parse-remote.js'

@@ -1,4 +1,3 @@
-import { describe, it, expect } from 'vitest'
 import { yologuardConfigSchema } from './schema.js'
 
 describe('yologuardConfigSchema', () => {

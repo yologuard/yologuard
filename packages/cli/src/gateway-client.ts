@@ -1,5 +1,5 @@
 import { loadConfig } from '@yologuard/shared'
-import type { SandboxConfig, HealthResponse } from '@yologuard/shared'
+import type { SandboxConfig, HealthResponse, ApprovalRequest, ApprovalDecision } from '@yologuard/shared'
 
 type CreateSandboxParams = {
 	readonly repo: string
@@ -56,3 +56,24 @@ export const deleteSandbox = (id: string): Promise<{ message: string }> =>
 
 export const getHealth = (): Promise<HealthResponse> =>
 	request<HealthResponse>({ method: 'GET', path: '/health' })
+
+export const listApprovals = (sandboxId: string): Promise<ApprovalRequest[]> =>
+	request<ApprovalRequest[]>({ method: 'GET', path: `/sandboxes/${sandboxId}/approvals` })
+
+type ApproveRequestParams = {
+	readonly sandboxId: string
+	readonly requestId: string
+	readonly approved: boolean
+	readonly scope: string
+	readonly ttlMs?: number
+	readonly reason?: string
+}
+
+export const approveRequest = ({ sandboxId, ...body }: ApproveRequestParams): Promise<ApprovalDecision> =>
+	request<ApprovalDecision>({ method: 'POST', path: `/sandboxes/${sandboxId}/approve`, body })
+
+export const revokeApproval = ({ sandboxId, approvalId }: {
+	readonly sandboxId: string
+	readonly approvalId: string
+}): Promise<{ message: string }> =>
+	request<{ message: string }>({ method: 'DELETE', path: `/sandboxes/${sandboxId}/approvals/${approvalId}` })

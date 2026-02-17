@@ -17,6 +17,10 @@
     "lint": "biome check src/"
   },
   "dependencies": {
-    "@yologuard/shared": "workspace:*"
+    "@yologuard/shared": "workspace:*",
+    "dockerode": "^4.0.7"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.38"
   }
 }

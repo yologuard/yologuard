@@ -1,4 +1,3 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createGateway } from './server.js'
 
 describe('Gateway server', () => {

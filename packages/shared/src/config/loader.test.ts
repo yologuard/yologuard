@@ -1,7 +1,6 @@
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { loadConfig } from './loader.js'
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT } from '../constants.js'
 

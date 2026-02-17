@@ -15,9 +15,12 @@
     "build": "tsc",
     "dev": "node --watch dist/index.js",
     "test": "vitest run",
-    "lint": "biome check src/"
+    "lint": "biome check src/",
+    "typegen": "openapicmd typegen --backend ./openapi.yaml > src/types/openapi.d.ts"
   },
   "dependencies": {
+    "@fastify/websocket": "^11.2.0",
+    "@yologuard/sandbox": "workspace:*",
     "@yologuard/shared": "workspace:*",
     "ajv-formats": "^3.0.1",
     "dockerode": "^4.0.7",
@@ -27,6 +30,7 @@
   },
   "devDependencies": {
     "@types/dockerode": "^3.3.38",
-    "@types/http-errors": "^2.0.4"
+    "@types/http-errors": "^2.0.4",
+    "openapicmd": "^2.7.0"
   }
 }

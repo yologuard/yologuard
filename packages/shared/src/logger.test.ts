@@ -1,4 +1,3 @@
-import { describe, it, expect } from 'vitest'
 import { createLogger } from './logger.js'
 
 describe('createLogger', () => {

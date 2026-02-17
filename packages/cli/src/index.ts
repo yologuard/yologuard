@@ -12,7 +12,14 @@ Commands:
   doctor             Validate environment (Docker, config, Node.js)
   launch [path]      Create a sandbox and launch an agent
   list               List active sandboxes
+  attach <sandbox>   Attach to agent's tmux session
+  logs <sandbox>     Show sandbox container logs
   stop <sandbox-id>  Stop and destroy a sandbox
+  warm               Pre-fetch repos into local cache
+  audit <sandbox>    Show audit log for a sandbox
+  approvals <id>     List pending approvals for a sandbox
+  approve <id> <req> Approve or deny a pending request
+  revoke <id> <appr> Revoke a previously granted approval
 
 Options:
   --version          Show version
@@ -73,10 +80,45 @@ const main = async () => {
 			await list()
 			break
 		}
+		case 'attach': {
+			const { attach } = await import('./commands/attach.js')
+			await attach(rest[0])
+			break
+		}
+		case 'logs': {
+			const { logs } = await import('./commands/logs.js')
+			await logs(rest[0])
+			break
+		}
 		case 'stop':
 		case 'destroy': {
 			const { stop } = await import('./commands/stop.js')
 			await stop(rest[0])
+			break
+		}
+		case 'warm': {
+			const { warm } = await import('./commands/warm.js')
+			await warm()
+			break
+		}
+		case 'audit': {
+			const { audit } = await import('./commands/audit.js')
+			await audit(rest)
+			break
+		}
+		case 'approvals': {
+			const { approvalsList } = await import('./commands/approvals-list.js')
+			await approvalsList(rest)
+			break
+		}
+		case 'approve': {
+			const { approve } = await import('./commands/approve.js')
+			await approve(rest)
+			break
+		}
+		case 'revoke': {
+			const { revoke } = await import('./commands/revoke.js')
+			await revoke(rest)
 			break
 		}
 		default: {

@@ -13,7 +13,9 @@
     "lint": "biome check src/"
   },
   "dependencies": {
+    "@yologuard/audit": "workspace:*",
     "@yologuard/gateway": "workspace:*",
+    "@yologuard/sandbox": "workspace:*",
     "@yologuard/shared": "workspace:*"
   }
 }

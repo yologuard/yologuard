@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { listSandboxes, createSandbox, getSandbox, deleteSandbox, getHealth } from './gateway-client.js'
 
 const mockFetch = vi.fn()

@@ -2,14 +2,27 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import {
 	createLogger,
 	type GatewayConfig,
+	type Logger,
 	DEFAULT_GATEWAY_HOST,
 	DEFAULT_GATEWAY_PORT,
 } from '@yologuard/shared'
+import {
+	createSandboxManager,
+	resolveDevcontainerConfig,
+	launchAgent,
+	startHealthMonitor,
+	stopHealthMonitor,
+	stopAllMonitors,
+	type AgentType,
+} from '@yologuard/sandbox'
 import { createOpenApiBackend } from './openapi.js'
-import { registerRoutes } from './routes/index.js'
+import { registerRoutes, type RouteDeps } from './routes/index.js'
+import { sandboxStore } from './store.js'
+import { createApprovalStore } from './approvals.js'
 
 export type GatewayOptions = {
 	readonly config?: Partial<GatewayConfig>
+	readonly enableSandboxManager?: boolean
 }
 
 export type Gateway = {
@@ -18,7 +31,10 @@ export type Gateway = {
 	readonly stop: () => Promise<void>
 }
 
-export const createGateway = async ({ config }: GatewayOptions = {}): Promise<Gateway> => {
+export const createGateway = async ({
+	config,
+	enableSandboxManager = false,
+}: GatewayOptions = {}): Promise<Gateway> => {
 	const host = config?.host ?? DEFAULT_GATEWAY_HOST
 	const port = config?.port ?? DEFAULT_GATEWAY_PORT
 	const logger = createLogger({ name: 'gateway' })
@@ -34,8 +50,26 @@ export const createGateway = async ({ config }: GatewayOptions = {}): Promise<Ga
 		}
 	})
 
+	// Wire up sandbox manager when enabled (requires Docker + devcontainer CLI)
+	const sandboxManager = enableSandboxManager
+		? createSandboxManager({ logger })
+		: undefined
+
+	const approvalStore = createApprovalStore()
+
+	const deps: RouteDeps = {
+		store: sandboxStore,
+		logger,
+		approvalStore,
+		sandboxManager,
+		resolveDevcontainerConfig,
+		launchAgent,
+		startHealthMonitor,
+		stopHealthMonitor,
+	}
+
 	const api = await createOpenApiBackend()
-	registerRoutes(api)
+	registerRoutes({ api, deps })
 
 	app.all('/*', async (request, reply) => {
 		const response = await api.handleRequest(
@@ -60,6 +94,7 @@ export const createGateway = async ({ config }: GatewayOptions = {}): Promise<Ga
 
 	const stop = async () => {
 		logger.info('Gateway shutting down')
+		stopAllMonitors()
 		await app.close()
 	}
 

@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@yologuard/shared": "workspace:*",
-    "better-sqlite3": "^11.8.0"
+    "better-sqlite3": "^12.6.2"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13"

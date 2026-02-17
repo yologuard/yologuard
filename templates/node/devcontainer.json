@@ -1,0 +1,11 @@
+{
+    "name": "YoloGuard Node.js Sandbox",
+    "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+    "features": {
+        "ghcr.io/yologuard/features/security:1": {}
+    },
+    "containerEnv": {
+        "YOLOGUARD_SANDBOX": "true"
+    },
+    "remoteUser": "node"
+}

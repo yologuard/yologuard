@@ -17,6 +17,7 @@
     "lint": "biome check src/"
   },
   "dependencies": {
+    "@devcontainers/cli": "^0.75.0",
     "@yologuard/shared": "workspace:*"
   }
 }
