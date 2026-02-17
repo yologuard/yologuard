@@ -1,4 +1,4 @@
-import { launchAgent, isAgentRunning, getAttachCommand, stopAgent, SUPPORTED_AGENTS } from './agent.js'
+import { launchAgent, isAgentRunning, getAttachCommand, getShellCommand, stopAgent, SUPPORTED_AGENTS } from './agent.js'
 import { DEVCONTAINER_JS } from './manager.js'
 
 vi.mock('node:child_process', () => ({
@@ -153,6 +153,28 @@ describe('getAttachCommand', () => {
 		})
 		expect(cmd).toBe(
 			`${process.execPath} ${DEVCONTAINER_JS} exec --workspace-folder /workspace/my-repo --config /home/user/.yologuard/configs/abc/devcontainer.json tmux attach-session -t yologuard-agent`,
+		)
+	})
+})
+
+describe('getShellCommand', () => {
+	it('uses docker exec -it for shell with workdir when containerId is provided', () => {
+		const cmd = getShellCommand({
+			workspacePath: '/workspace/my-repo',
+			containerId: 'abc123def456',
+			remoteUser: 'node',
+		})
+		expect(cmd).toBe(
+			'docker exec -it -u node -w /workspaces/my-repo -e TERM=xterm-256color abc123def456 bash',
+		)
+	})
+
+	it('falls back to devcontainer exec for shell when no containerId', () => {
+		const cmd = getShellCommand({
+			workspacePath: '/workspace/my-repo',
+		})
+		expect(cmd).toBe(
+			`${process.execPath} ${DEVCONTAINER_JS} exec --workspace-folder /workspace/my-repo bash`,
 		)
 	})
 })

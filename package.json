@@ -1,7 +1,7 @@
 {
   "name": "@yologuard/monorepo",
   "private": true,
-  "version": "0.0.1-pre-alpha.1",
+  "version": "0.0.1-pre-alpha.2",
   "description": "Guardrails for AI coding agents",
   "author": "Viljami Kuosmanen <viljami@viljami.io>",
   "license": "MIT",
@@ -30,7 +30,7 @@
     "cli": "node packages/cli/dist/index.js",
     "start": "node packages/cli/dist/index.js start",
     "prerelease": "turbo run build && vitest run",
-    "release": "pnpm prerelease && pnpm -r publish --no-git-checks --tag alpha && pnpm --filter yologuard exec pnpm publish --no-git-checks --tag alpha",
+    "release": "pnpm prerelease && pnpm -r publish --no-git-checks --tag latest && pnpm --filter yologuard exec pnpm publish --no-git-checks --tag latest",
     "version:bump": "pnpm -r exec -- npm version --no-git-tag-version",
     "docs-index": "npx tsx scripts/generate-docs-index.ts"
   },

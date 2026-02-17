@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { basename } from 'node:path'
 import { promisify } from 'node:util'
 import type { Logger } from '@yologuard/shared'
 import { DEVCONTAINER_JS, devcontainerCommand } from './manager.js'
@@ -123,6 +124,31 @@ export const getAttachCommand = ({
 		args.push('--config', configPath)
 	}
 	args.push('tmux', 'attach-session', '-t', TMUX_SESSION_NAME)
+	return devcontainerCommand(args)
+}
+
+export const getShellCommand = ({
+	workspacePath,
+	configPath,
+	containerId,
+	remoteUser,
+}: {
+	readonly workspacePath: string
+	readonly configPath?: string
+	readonly containerId?: string
+	readonly remoteUser?: string
+}): string => {
+	const containerWorkdir = `/workspaces/${basename(workspacePath)}`
+	if (containerId) {
+		const userFlag = remoteUser ? `-u ${remoteUser} ` : ''
+		return `docker exec -it ${userFlag}-w ${containerWorkdir} -e TERM=xterm-256color ${containerId} bash`
+	}
+	const args = ['exec']
+	args.push('--workspace-folder', workspacePath)
+	if (configPath) {
+		args.push('--config', configPath)
+	}
+	args.push('bash')
 	return devcontainerCommand(args)
 }
 

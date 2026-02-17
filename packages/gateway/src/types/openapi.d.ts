@@ -45,7 +45,7 @@ declare namespace Components {
              */
             repo: string;
             /**
-             * Agent to launch in the sandbox
+             * Agent to launch in the sandbox (omit for shell-only)
              */
             agent?: string;
             /**
@@ -77,12 +77,20 @@ declare namespace Components {
         export interface Sandbox {
             id: string;
             repo: string;
-            agent: string;
+            agent?: string;
             branch?: string;
             state: "creating" | "running" | "paused" | "stopping" | "stopped";
             createdAt: string; // date-time
             containerId?: string;
             networkPolicy?: string;
+            /**
+             * Path to generated devcontainer.json (when no existing config found)
+             */
+            configPath?: string;
+            /**
+             * Container user for interactive exec (e.g. node, vscode)
+             */
+            remoteUser?: string;
         }
     }
 }
@@ -98,20 +106,6 @@ declare namespace Paths {
         namespace Responses {
             export type $200 = Components.Schemas.ApprovalDecision;
             export type $400 = Components.Schemas.ErrorResponse;
-            export type $404 = Components.Schemas.ErrorResponse;
-        }
-    }
-    namespace RevokeApproval {
-        namespace Parameters {
-            export type SandboxId = string;
-            export type ApprovalId = string;
-        }
-        export interface PathParameters {
-            sandboxId: Parameters.SandboxId;
-            approvalId: Parameters.ApprovalId;
-        }
-        namespace Responses {
-            export type $200 = Components.Schemas.MessageResponse;
             export type $404 = Components.Schemas.ErrorResponse;
         }
     }
@@ -166,6 +160,20 @@ declare namespace Paths {
     namespace ListSandboxes {
         namespace Responses {
             export type $200 = Components.Schemas.Sandbox[];
+        }
+    }
+    namespace RevokeApproval {
+        namespace Parameters {
+            export type ApprovalId = string;
+            export type SandboxId = string;
+        }
+        export interface PathParameters {
+            sandboxId: Parameters.SandboxId;
+            approvalId: Parameters.ApprovalId;
+        }
+        namespace Responses {
+            export type $200 = Components.Schemas.MessageResponse;
+            export type $404 = Components.Schemas.ErrorResponse;
         }
     }
 }

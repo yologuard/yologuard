@@ -1,6 +1,6 @@
 {
   "name": "@yologuard/shared",
-  "version": "0.0.1-pre-alpha.1",
+  "version": "0.0.1-pre-alpha.2",
   "description": "Shared types, config schema, and utilities for YoloGuard",
   "type": "module",
   "license": "MIT",

@@ -3,7 +3,7 @@ import type { SandboxState } from '@yologuard/shared'
 type SandboxRecord = {
 	readonly id: string
 	readonly repo: string
-	readonly agent: string
+	readonly agent?: string
 	readonly branch?: string
 	readonly state: SandboxState
 	readonly createdAt: string
@@ -15,7 +15,7 @@ type SandboxRecord = {
 
 type CreateSandboxParams = {
 	readonly repo: string
-	readonly agent: string
+	readonly agent?: string
 	readonly branch?: string
 	readonly networkPolicy?: string
 }

@@ -18,6 +18,7 @@ export {
 	launchAgent,
 	isAgentRunning,
 	getAttachCommand,
+	getShellCommand,
 	stopAgent,
 	SUPPORTED_AGENTS,
 	type AgentType,

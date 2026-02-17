@@ -205,8 +205,7 @@ components:
           description: Path or URL to the repository
         agent:
           type: string
-          default: claude
-          description: Agent to launch in the sandbox
+          description: Agent to launch in the sandbox (omit for shell-only)
         branch:
           type: string
           description: Working branch name
@@ -226,7 +225,7 @@ components:
 
     Sandbox:
       type: object
-      required: [id, repo, agent, state, createdAt]
+      required: [id, repo, state, createdAt]
       properties:
         id:
           type: string

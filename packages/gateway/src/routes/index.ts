@@ -49,7 +49,7 @@ const replyError = ({
 type SandboxRecord = {
 	readonly id: string
 	readonly repo: string
-	readonly agent: string
+	readonly agent?: string
 	readonly branch?: string
 	readonly state: SandboxState
 	readonly createdAt: string
@@ -62,7 +62,7 @@ type SandboxRecord = {
 type SandboxStore = {
 	readonly create: (params: {
 		readonly repo: string
-		readonly agent: string
+		readonly agent?: string
 		readonly branch?: string
 		readonly networkPolicy?: string
 	}) => SandboxRecord
@@ -147,7 +147,7 @@ export const registerRoutes = ({
 	}: {
 		readonly sandboxId: string
 		readonly repo: string
-		readonly agent: string
+		readonly agent?: string
 	}) => {
 		if (!deps.sandboxManager || !deps.resolveDevcontainerConfig) return
 
@@ -189,7 +189,7 @@ export const registerRoutes = ({
 				configPath,
 			})
 
-			if (deps.launchAgent) {
+			if (agent && deps.launchAgent) {
 				logger.info({ sandboxId, agent }, 'Launching agent...')
 				await deps.launchAgent({
 					workspacePath: repo,
@@ -211,7 +211,7 @@ export const registerRoutes = ({
 
 		const sandbox = store.create({
 			repo: body.repo,
-			agent: body.agent ?? 'claude',
+			agent: body.agent,
 			branch: body.branch,
 			networkPolicy: body.networkPolicy ?? 'none',
 		})
@@ -220,7 +220,7 @@ export const registerRoutes = ({
 		provisionSandbox({
 			sandboxId: sandbox.id,
 			repo: body.repo,
-			agent: body.agent ?? 'claude',
+			agent: body.agent,
 		})
 
 		return replyJSON({ data: sandbox, reply, status: 201 })

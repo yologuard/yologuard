@@ -1,9 +1,10 @@
 import { execSync } from 'node:child_process'
-import { getAttachCommand } from '@yologuard/sandbox'
+import { getAttachCommand, getShellCommand } from '@yologuard/sandbox'
 import { getSandbox } from '../gateway-client.js'
 
 type SandboxInfo = {
 	readonly repo: string
+	readonly agent?: string
 	readonly state: string
 	readonly configPath?: string
 	readonly containerId?: string
@@ -50,21 +51,32 @@ export const attach = async (sandboxId?: string) => {
 			return
 		}
 
-		const command = getAttachCommand({
+		const connectParams = {
 			workspacePath: sandbox.repo,
 			configPath: sandbox.configPath,
 			containerId: sandbox.containerId,
 			remoteUser: sandbox.remoteUser,
-		})
+		}
 
-		// Retry attach — the agent session may still be starting
-		const maxRetries = 5
+		// No agent — drop into shell directly
+		if (!sandbox.agent) {
+			execSync(getShellCommand(connectParams), { stdio: 'inherit' })
+			return
+		}
+
+		// Agent mode — retry attach to tmux (session may still be starting)
+		const command = getAttachCommand(connectParams)
+		const maxRetries = 3
 		for (let attempt = 1; attempt <= maxRetries; attempt++) {
 			try {
 				execSync(command, { stdio: 'inherit' })
 				return
 			} catch {
-				if (attempt === maxRetries) throw new Error('Agent session not available — is the agent running?')
+				if (attempt === maxRetries) {
+					process.stderr.write('Agent session not available, dropping to shell...\n')
+					execSync(getShellCommand(connectParams), { stdio: 'inherit' })
+					return
+				}
 				process.stderr.write(`Waiting for agent session (attempt ${attempt}/${maxRetries})...\n`)
 				await new Promise((r) => setTimeout(r, 3_000))
 			}

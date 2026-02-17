@@ -1,5 +1,6 @@
+import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
-import { createSandbox } from '../gateway-client.js'
+import { createSandbox, getHealth } from '../gateway-client.js'
 import { attach } from './attach.js'
 
 type LaunchArgs = {
@@ -30,6 +31,38 @@ export const parseLaunchArgs = (args: readonly string[]): LaunchArgs | undefined
 	return { repo, agent, detach }
 }
 
+const isGatewayRunning = async (): Promise<boolean> => {
+	try {
+		await getHealth()
+		return true
+	} catch {
+		return false
+	}
+}
+
+const startGateway = async (): Promise<void> => {
+	process.stderr.write('Starting gateway...\n')
+	const child = spawn(process.execPath, [process.argv[1], 'start'], {
+		detached: true,
+		stdio: 'ignore',
+	})
+	child.unref()
+
+	// Wait for gateway to be ready
+	const maxWait = 10_000
+	const start = Date.now()
+	while (Date.now() - start < maxWait) {
+		await new Promise((r) => setTimeout(r, 500))
+		if (await isGatewayRunning()) return
+	}
+	throw new Error('Gateway failed to start within 10s')
+}
+
+const ensureGateway = async (): Promise<void> => {
+	if (await isGatewayRunning()) return
+	await startGateway()
+}
+
 export const launch = async (args: readonly string[]) => {
 	const parsed = parseLaunchArgs(args)
 
@@ -40,6 +73,8 @@ export const launch = async (args: readonly string[]) => {
 	}
 
 	try {
+		await ensureGateway()
+
 		const repo = resolve(parsed.repo)
 		const sandbox = await createSandbox({
 			repo,
@@ -49,7 +84,7 @@ export const launch = async (args: readonly string[]) => {
 		console.log('Sandbox created:')
 		console.log(`  ID:    ${sandbox.id}`)
 		console.log(`  Repo:  ${sandbox.repo}`)
-		console.log(`  Agent: ${sandbox.agent}`)
+		if (sandbox.agent) console.log(`  Agent: ${sandbox.agent}`)
 		console.log(`  State: ${sandbox.state}`)
 
 		if (parsed.detach) {
