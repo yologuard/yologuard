@@ -1,0 +1,299 @@
+openapi: 3.1.0
+info:
+  title: YoloGuard Gateway API
+  version: 0.0.1
+  description: Control plane API for YoloGuard sandbox management
+
+servers:
+  - url: http://127.0.0.1:4200
+    description: Local gateway
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      responses:
+        '200':
+          description: Gateway is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /sandboxes:
+    post:
+      operationId: createSandbox
+      summary: Create a new sandbox
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSandboxRequest'
+      responses:
+        '201':
+          description: Sandbox created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      operationId: listSandboxes
+      summary: List active sandboxes
+      responses:
+        '200':
+          description: List of sandboxes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sandbox'
+
+  /sandboxes/{sandboxId}:
+    get:
+      operationId: getSandbox
+      summary: Get sandbox details
+      parameters:
+        - $ref: '#/components/parameters/SandboxId'
+      responses:
+        '200':
+          description: Sandbox details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '404':
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteSandbox
+      summary: Destroy a sandbox
+      parameters:
+        - $ref: '#/components/parameters/SandboxId'
+      responses:
+        '200':
+          description: Sandbox destroyed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '404':
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sandboxes/{sandboxId}/approvals:
+    get:
+      operationId: listApprovals
+      summary: List approval requests for a sandbox
+      parameters:
+        - $ref: '#/components/parameters/SandboxId'
+      responses:
+        '200':
+          description: List of approval requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApprovalRequest'
+        '404':
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sandboxes/{sandboxId}/approve:
+    post:
+      operationId: approveSandboxRequest
+      summary: Approve or deny a pending request
+      parameters:
+        - $ref: '#/components/parameters/SandboxId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalDecisionRequest'
+      responses:
+        '200':
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalDecision'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sandbox or request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    SandboxId:
+      name: sandboxId
+      in: path
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, version, uptime]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+        uptime:
+          type: number
+
+    CreateSandboxRequest:
+      type: object
+      required: [repo]
+      properties:
+        repo:
+          type: string
+          description: Path or URL to the repository
+        agent:
+          type: string
+          default: claude
+          description: Agent to launch in the sandbox
+        branch:
+          type: string
+          description: Working branch name
+        networkPolicy:
+          type: string
+          default: none
+          description: Network policy preset
+        resourceLimits:
+          type: object
+          properties:
+            cpus:
+              type: number
+            memoryMb:
+              type: number
+            diskMb:
+              type: number
+
+    Sandbox:
+      type: object
+      required: [id, repo, agent, state, createdAt]
+      properties:
+        id:
+          type: string
+        repo:
+          type: string
+        agent:
+          type: string
+        branch:
+          type: string
+        state:
+          type: string
+          enum: [creating, running, paused, stopping, stopped]
+        createdAt:
+          type: string
+          format: date-time
+        containerId:
+          type: string
+        networkPolicy:
+          type: string
+
+    ApprovalRequest:
+      type: object
+      required: [id, sandboxId, type, payload, createdAt]
+      properties:
+        id:
+          type: string
+        sandboxId:
+          type: string
+        type:
+          type: string
+          enum: [egress.allow, repo.add, secret.use, git.push, pr.create]
+        payload:
+          type: object
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ApprovalDecisionRequest:
+      type: object
+      required: [requestId, approved, scope]
+      properties:
+        requestId:
+          type: string
+        approved:
+          type: boolean
+        scope:
+          type: string
+          enum: [once, session, ttl]
+        ttlMs:
+          type: number
+        reason:
+          type: string
+
+    ApprovalDecision:
+      type: object
+      required: [id, requestId, sandboxId, approved, scope, approver, decidedAt]
+      properties:
+        id:
+          type: string
+        requestId:
+          type: string
+        sandboxId:
+          type: string
+        approved:
+          type: boolean
+        scope:
+          type: string
+          enum: [once, session, ttl]
+        ttlMs:
+          type: number
+        reason:
+          type: string
+        approver:
+          type: string
+        decidedAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required: [status, error]
+      properties:
+        status:
+          type: number
+        error:
+          type: string
+
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string

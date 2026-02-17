@@ -1,0 +1,22 @@
+{
+  "name": "@yologuard/egress",
+  "version": "0.0.1-pre-alpha.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "biome check src/"
+  },
+  "dependencies": {
+    "@yologuard/shared": "workspace:*"
+  }
+}

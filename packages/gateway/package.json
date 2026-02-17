@@ -1,0 +1,32 @@
+{
+  "name": "@yologuard/gateway",
+  "version": "0.0.1-pre-alpha.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "node --watch dist/index.js",
+    "test": "vitest run",
+    "lint": "biome check src/"
+  },
+  "dependencies": {
+    "@yologuard/shared": "workspace:*",
+    "ajv-formats": "^3.0.1",
+    "dockerode": "^4.0.7",
+    "fastify": "^5.3.3",
+    "http-errors": "^2.0.0",
+    "openapi-backend": "^5.15.0"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.38",
+    "@types/http-errors": "^2.0.4"
+  }
+}
