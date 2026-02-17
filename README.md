@@ -64,31 +64,112 @@ Audit:
   audit <sandbox>        Show audit log for a sandbox
 ```
 
-## Architecture
+## Philosophy: Shoulders of Giants
+
+**Build as little custom as possible.** Every component is an existing, proven, boring open-source tool — YoloGuard just wires them together with good UX and agent-specific policy.
+
+| Layer | Boring tech we use | What we build |
+|-------|-------------------|---------------|
+| Sandboxing | **Docker** + **Dev Containers** (`@devcontainers/cli`) | Config merging, lifecycle orchestration |
+| Network isolation | **Docker** `--network=none` + **Squid** sidecar | Sidecar lifecycle, DNS resolver, allowlist management |
+| Git credentials | **git credential helper** protocol (built-in to git) | Gateway-side token management, branch allowlist |
+| PR creation | **GitHub/GitLab REST API** | Minimal gateway REST client (~3 endpoints) |
+| Codebase indexing | **tree-sitter** (multi-language AST parser) | Structural compressor, symbol extractor |
+| Audit storage | **SQLite** | Scoped query engine, redaction |
+| Config | **JSON5** | Dot-path CLI (`config get/set/unset`) |
+
+YoloGuard's custom code is almost entirely **policy and UX** — the plumbing is proven infrastructure that security teams already know and trust.
+
+## How It Works
 
 ```
-┌─────────────┐     ┌──────────────────────────────────────────┐
-│   CLI / TUI  │────▶│  Gateway (Fastify + openapi-backend)     │
-└─────────────┘     │  ├── Sandbox store (JSON file)            │
-                    │  ├── Approval router (socket IPC)         │
-                    │  ├── Token store (PATs, scoped creds)     │
-                    │  └── Docker client (dockerode)            │
-                    └──────┬──────────────────┬────────────────┘
-                           │                  │
-              ┌────────────▼──┐    ┌──────────▼──────────┐
-              │  DevContainer  │    │  Squid Sidecar       │
-              │  (sandbox)     │◀──▶│  (egress filtering)  │
-              │  ├── Agent     │    │  ├── Domain allowlist │
-              │  ├── tmux      │    │  └── Bridge network   │
-              │  └── cred help │    └───────────────────────┘
-              └────────────────┘
-                isolated network (no bridge access)
+┌──────────────────────────────────────┐
+│         Standard Dev Container       │
+│  (devcontainer.json / Dockerfile)    │
+│  (--network=none, host-enforced)     │
+│                                      │
+│  ┌────────────┐  ┌────────────────┐  │
+│  │ Workspace  │  │  Dev Features  │  │
+│  │ (repo)     │  │  (Node, Py..)  │  │
+│  └────────────┘  └────────────────┘  │
+│  ┌────────────┐  ┌────────────────┐  │
+│  │ VS Code    │  │  Agent CLI     │  │
+│  │ Server     │  │  (Claude etc)  │  │
+│  └────────────┘  └────────────────┘  │
+├──────────────────────────────────────┤
+│    YoloGuard layers (in container)   │
+│  ┌────────────┐  ┌────────────────┐  │
+│  │ Git cred   │  │  yologuard-    │  │
+│  │ helper     │  │  request tool  │  │
+│  │ → gateway  │  │  → gateway     │  │
+│  └────────────┘  └────────────────┘  │
+│  ┌────────────┐  ┌────────────────┐  │
+│  │ HTTP_PROXY │  │  Audit hooks   │  │
+│  │ → sidecar  │  │               │  │
+│  └────────────┘  └────────────────┘  │
+├──────────────────────────────────────┤
+│    Gateway-side (host)               │
+│  ┌────────────┐  ┌────────────────┐  │
+│  │ Squid      │  │  Credential    │  │
+│  │ sidecar    │  │  token store   │  │
+│  └────────────┘  └────────────────┘  │
+│  ┌────────────┐  ┌────────────────┐  │
+│  │ Approval   │  │  PR creation   │  │
+│  │ router     │  │  REST client   │  │
+│  └────────────┘  └────────────────┘  │
+└──────────────────────────────────────┘
 ```
 
-- **Sandboxes** are DevContainers on an isolated Docker network with no direct internet
-- **Squid sidecar** per sandbox proxies only allowlisted domains
-- **Credential helper** in the container talks to the gateway over a unix socket -- real tokens never enter the sandbox
-- **Approval system** lets agents request permissions (`egress.allow`, `git.push`, `pr.create`) and blocks until a human approves
+1. **`yologuard launch --agent claude .`** — reads config, merges with `.devcontainer/devcontainer.json` (or generates one)
+2. **Builds the Dev Container** via `@devcontainers/cli`, injecting security layers as a DevContainer Feature
+3. **Creates isolated network** — `--network=none` with a Squid sidecar for allowlisted egress
+4. **Launches agent** inside tmux — works with any terminal-based agent, no agent modification needed
+5. **Agent requests permissions** via `yologuard-request` over unix socket — blocks until approved
+6. **Human approves** via CLI — by category (egress, push, PR), not per-command
+
+### Key Design Decisions
+
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Security model | Default-deny + approval requests | Agents start with zero permissions. Approve by class, not command. Kills approval fatigue. |
+| Sandbox standard | **Dev Containers** (containers.dev) | Open standard. Existing `devcontainer.json` works out of the box. VS Code connects natively. |
+| Network isolation | `--network=none` + Squid sidecar | Host-enforced, not bypassable from inside the container. |
+| Git credentials | Custom credential helper + gateway | Real tokens never enter the container. Scoped, short-lived creds. Branch allowlist at auth layer. |
+| PR creation | Minimal REST client on gateway | 3 API calls instead of proxying the entire `gh`/`glab` CLI surface. Predictable and testable. |
+| Agent interface | tmux inside container | Works with any terminal-based agent. No agent modification needed. |
+| Orchestration | Docker only (no K8s) | `docker` is already installed everywhere. K8s is overkill for local dev. |
+
+### The Big Idea: Dev Containers + Security Layers
+
+**A YoloGuard sandbox is a [Dev Container](https://containers.dev/) with security layers bolted on.**
+
+- Repos with `.devcontainer/devcontainer.json` work immediately
+- VS Code connects natively — same experience as GitHub Codespaces
+- The entire DevContainer ecosystem of [Features](https://containers.dev/features) and [Templates](https://containers.dev/templates) is available
+- YoloGuard doesn't reinvent container building — it uses `@devcontainers/cli` under the hood
+
+**What YoloGuard adds on top:**
+
+- Host-enforced network isolation (`--network=none` + Squid sidecar)
+- Git credential helper (gateway-side tokens, branch allowlist)
+- PR creation via gateway REST client (agent never has direct GitHub API access)
+- Approval system (`yologuard-request` — approve by class, not command)
+- Audit logging (approvals, git ops, network destinations)
+- Agent lifecycle management (launch, monitor, idle timeout, stop)
+
+### Git Integration
+
+**Cloning happens on the host, not inside the sandbox.** Repos are cached as bare clones at `~/.yologuard/repos/` and mounted as git worktrees. The agent never runs `git clone` against a remote.
+
+Inside the sandbox, the real `git` binary stays — a custom **credential helper** handles auth by talking to the gateway over a unix socket. The gateway holds real tokens and issues scoped, short-lived credentials per request.
+
+| Operation | Behavior |
+|-----------|----------|
+| `git commit`, `checkout`, `branch` | Unrestricted — local, no network needed |
+| `git pull`, `git fetch` | Works for approved remotes via credential helper |
+| `git push` (approved branch) | Works — credential helper provides scoped creds |
+| `git push` (unapproved branch) | Blocked at credential layer + pre-push hook |
+| PR creation | Via `yologuard-request pr.create` — gateway REST client, not `gh`/`glab` |
 
 ## Development
 
