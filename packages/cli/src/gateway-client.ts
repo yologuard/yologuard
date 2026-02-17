@@ -1,5 +1,10 @@
+import type {
+	ApprovalDecision,
+	ApprovalRequest,
+	HealthResponse,
+	SandboxConfig,
+} from '@yologuard/shared'
 import { loadConfig } from '@yologuard/shared'
-import type { SandboxConfig, HealthResponse, ApprovalRequest, ApprovalDecision } from '@yologuard/shared'
 
 type CreateSandboxParams = {
 	readonly repo: string
@@ -18,7 +23,11 @@ const getBaseUrl = (): string => {
 	return `http://${config.gateway.host}:${config.gateway.port}`
 }
 
-const request = async <T>({ method, path, body }: {
+const request = async <T>({
+	method,
+	path,
+	body,
+}: {
 	readonly method: string
 	readonly path: string
 	readonly body?: unknown
@@ -32,7 +41,7 @@ const request = async <T>({ method, path, body }: {
 		body: body ? JSON.stringify(body) : undefined,
 	})
 
-	const data = await response.json() as T | GatewayError
+	const data = (await response.json()) as T | GatewayError
 
 	if (!response.ok) {
 		const err = data as GatewayError
@@ -69,11 +78,65 @@ type ApproveRequestParams = {
 	readonly reason?: string
 }
 
-export const approveRequest = ({ sandboxId, ...body }: ApproveRequestParams): Promise<ApprovalDecision> =>
+export const approveRequest = ({
+	sandboxId,
+	...body
+}: ApproveRequestParams): Promise<ApprovalDecision> =>
 	request<ApprovalDecision>({ method: 'POST', path: `/sandboxes/${sandboxId}/approve`, body })
 
-export const revokeApproval = ({ sandboxId, approvalId }: {
+export const revokeApproval = ({
+	sandboxId,
+	approvalId,
+}: {
 	readonly sandboxId: string
 	readonly approvalId: string
 }): Promise<{ message: string }> =>
-	request<{ message: string }>({ method: 'DELETE', path: `/sandboxes/${sandboxId}/approvals/${approvalId}` })
+	request<{ message: string }>({
+		method: 'DELETE',
+		path: `/sandboxes/${sandboxId}/approvals/${approvalId}`,
+	})
+
+export type EgressConfig = {
+	readonly preset: string
+	readonly allowlist: string[]
+}
+
+export const getEgress = (sandboxId: string): Promise<EgressConfig> =>
+	request<EgressConfig>({ method: 'GET', path: `/sandboxes/${sandboxId}/egress` })
+
+export const setEgress = ({
+	sandboxId,
+	...body
+}: {
+	readonly sandboxId: string
+	readonly allowlist?: string[]
+	readonly preset?: string
+	readonly additionalDomains?: string[]
+}): Promise<EgressConfig> =>
+	request<EgressConfig>({ method: 'PUT', path: `/sandboxes/${sandboxId}/egress`, body })
+
+export const addEgressDomains = ({
+	sandboxId,
+	domains,
+}: {
+	readonly sandboxId: string
+	readonly domains: string[]
+}): Promise<EgressConfig> =>
+	request<EgressConfig>({
+		method: 'POST',
+		path: `/sandboxes/${sandboxId}/egress/domains`,
+		body: { domains },
+	})
+
+export const removeEgressDomains = ({
+	sandboxId,
+	domains,
+}: {
+	readonly sandboxId: string
+	readonly domains: string[]
+}): Promise<EgressConfig> =>
+	request<EgressConfig>({
+		method: 'DELETE',
+		path: `/sandboxes/${sandboxId}/egress/domains`,
+		body: { domains },
+	})

@@ -33,8 +33,8 @@ export const list = async () => {
 			console.log([
 				padRight({ text: sandbox.id, width: PAD.id }),
 				padRight({ text: sandbox.state, width: PAD.state }),
-				padRight({ text: sandbox.agent, width: PAD.agent }),
-				padRight({ text: sandbox.repo, width: PAD.repo }),
+				padRight({ text: sandbox.agent ?? '-', width: PAD.agent }),
+				padRight({ text: sandbox.repo ?? '-', width: PAD.repo }),
 			].join(''))
 		}
 	} catch (err) {

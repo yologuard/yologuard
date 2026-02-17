@@ -1,6 +1,6 @@
 {
   "name": "@yologuard/gateway",
-  "version": "0.0.1-pre-alpha.2",
+  "version": "0.0.1-pre-alpha.3",
   "description": "YoloGuard control plane — Fastify + OpenAPI gateway server",
   "type": "module",
   "license": "MIT",
@@ -33,6 +33,8 @@
   },
   "dependencies": {
     "@fastify/websocket": "^11.2.0",
+    "@yologuard/credentials": "workspace:*",
+    "@yologuard/egress": "workspace:*",
     "@yologuard/sandbox": "workspace:*",
     "@yologuard/shared": "workspace:*",
     "ajv-formats": "^3.0.1",

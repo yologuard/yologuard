@@ -15,25 +15,11 @@ export const generateSquidConfig = ({
 	blocklist = KNOWN_EXFILTRATION_DOMAINS,
 }: GenerateSquidConfigParams): string => {
 	const lines: string[] = [
-		`http_port ${SQUID_PORT} ssl-bump cert=/etc/squid/ssl/squid-ca.pem generate-host-certificates=on dynamic_cert_mem_cache_size=4MB`,
-		'',
-		'# SSL bump: peek at SNI then splice or terminate',
-		'acl step1 at_step SslBump1',
-		'ssl_bump peek step1',
+		`http_port ${SQUID_PORT}`,
 		'',
 	]
 
-	// Allowed domains ACL
-	if (allowlist.length > 0) {
-		lines.push('# Allowed domains')
-		lines.push(`acl allowed_domains dstdomain ${allowlist.join(' ')}`)
-		lines.push('ssl_bump splice allowed_domains')
-	}
-
-	lines.push('ssl_bump terminate all')
-	lines.push('')
-
-	// Exfiltration blocklist
+	// Exfiltration blocklist (checked first — deny before allow)
 	if (blocklist.length > 0) {
 		lines.push('# Exfiltration domain blocklist')
 		lines.push(`acl exfiltration_domains dstdomain ${blocklist.join(' ')}`)
@@ -47,16 +33,21 @@ export const generateSquidConfig = ({
 	lines.push('http_access deny doh_domains')
 	lines.push('')
 
-	// Access rules
+	// Allowed domains — CONNECT (HTTPS) and HTTP both filtered by destination domain
 	if (allowlist.length > 0) {
+		lines.push('# Allowed domains')
+		lines.push(`acl allowed_domains dstdomain ${allowlist.join(' ')}`)
+		lines.push('http_access allow CONNECT allowed_domains')
 		lines.push('http_access allow allowed_domains')
 	}
+
+	// Deny everything else
 	lines.push('http_access deny all')
 	lines.push('')
 
-	// Access logging
+	// Access logging — %ssl::>sni only works with ssl-bump, use %>rd (request domain) instead
 	lines.push('# Access logging')
-	lines.push('logformat yologuard %ts %6tr %>a %Ss/%03>Hs %<st %rm %ru %ssl::>sni')
+	lines.push('logformat yologuard %ts %6tr %>a %Ss/%03>Hs %<st %rm %ru %>rd')
 	lines.push('access_log stdio:/var/log/squid/access.log yologuard')
 	lines.push('')
 

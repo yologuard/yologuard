@@ -1,7 +1,7 @@
 {
   "name": "@yologuard/monorepo",
   "private": true,
-  "version": "0.0.1-pre-alpha.2",
+  "version": "0.0.1-pre-alpha.3",
   "description": "Guardrails for AI coding agents",
   "author": "Viljami Kuosmanen <viljami@viljami.io>",
   "license": "MIT",
@@ -22,6 +22,7 @@
     "build": "turbo run build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "check": "turbo run check",

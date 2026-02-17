@@ -9,7 +9,8 @@ Full-team guardrails for AI coding agents. Lives in Slack.
 ```bash
 pnpm install
 pnpm build
-pnpm test
+pnpm test          # unit tests (305+, no Docker needed)
+pnpm test:e2e      # E2E tests (requires Docker, launches real sandboxes)
 ```
 
 ## Test the CLI

@@ -148,4 +148,86 @@ describe('createApprovalHandler', () => {
 			}
 		})
 	})
+
+	describe('waitForDecision + notifyDecision', () => {
+		it('should resolve when decision is notified', async () => {
+			const { handler, approvalStore } = setup()
+
+			const response = handler.onRequest(
+				JSON.stringify({
+					type: 'egress.allow',
+					sandboxId: 'sandbox-1',
+					payload: { domain: 'example.com' },
+				}),
+			)
+			const requestId = response.data?.requestId as string
+
+			expect(handler.hasPendingWaiter(requestId)).toBe(false)
+
+			const decisionPromise = handler.waitForDecision(requestId)
+			expect(handler.hasPendingWaiter(requestId)).toBe(true)
+
+			const decision = approvalStore.resolve({
+				requestId,
+				approved: true,
+				scope: 'session',
+				approver: 'test-user',
+			})
+
+			handler.notifyDecision({ requestId, decision })
+
+			const result = await decisionPromise
+			expect(result.approved).toBe(true)
+			expect(result.approver).toBe('test-user')
+			expect(handler.hasPendingWaiter(requestId)).toBe(false)
+		})
+
+		it('should resolve with denial', async () => {
+			const { handler, approvalStore } = setup()
+
+			const response = handler.onRequest(
+				JSON.stringify({
+					type: 'git.push',
+					sandboxId: 'sandbox-2',
+					payload: { remote: 'origin' },
+				}),
+			)
+			const requestId = response.data?.requestId as string
+
+			const decisionPromise = handler.waitForDecision(requestId)
+
+			const decision = approvalStore.resolve({
+				requestId,
+				approved: false,
+				scope: 'once',
+				reason: 'Not allowed',
+				approver: 'admin',
+			})
+
+			handler.notifyDecision({ requestId, decision })
+
+			const result = await decisionPromise
+			expect(result.approved).toBe(false)
+			expect(result.reason).toBe('Not allowed')
+		})
+
+		it('should not throw when notifying without a waiter', () => {
+			const { handler } = setup()
+
+			expect(() => {
+				handler.notifyDecision({
+					requestId: 'nonexistent',
+					decision: {
+						id: 'dec-1',
+						requestId: 'nonexistent',
+						sandboxId: 'sandbox-1',
+						approved: true,
+						scope: 'once',
+						approver: 'test',
+						decidedAt: new Date().toISOString(),
+					},
+				})
+			}).not.toThrow()
+		})
+	})
 })

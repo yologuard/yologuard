@@ -2,7 +2,7 @@
 
 Concrete implementation plan for Phase 1: "Default-deny sandbox, approval system, multi-repo."
 
-**Current state:** Turborepo monorepo (pnpm). M0–M8 + M11 complete. M2 end-to-end wired: `yologuard launch --agent claude .` creates a real devcontainer (auto-detected stack, generated Dockerfile with tmux + agent CLI baked in), launches agent in tmux session, and auto-attaches. M4 (approval system), M5 (credential helper), M6 (PR client), M7 (audit logger) all implemented. Gateway with fully-typed OpenAPI routes (generated via openapicmd typegen) + WebSocket + unix socket + model API proxy + approval store/handler + fire-and-forget sandbox provisioning. Credential helper with token store, branch/remote allowlist, pre-push hook. PR client with GitHub REST API (create/get/list PRs, labels, comments) + remote URL parser. Audit logger with SQLite (better-sqlite3), secret redaction, size-cap pruning. CLI with start/doctor/launch/list/attach/logs/stop/warm/audit/approvals/approve/revoke. 285 tests across 30 test files. All 9 packages build. README.md written.
+**Current state:** Turborepo monorepo (pnpm). M0–M5 wired E2E. Gateway with persistent sandbox store, container lifecycle management (health monitors, idle timeout, orphan scanning, state reconciliation), egress provisioning (network → sidecar → container on isolated network). Unix socket server wired into gateway for agent→gateway IPC. Approval handler with blocking `waitForDecision` / `notifyDecision` pattern. Token store loads saved PATs from disk on startup. Real `yologuard-request` and `git-credential-yologuard` scripts in install.sh (socat-based socket communication). Pre-push hook blocks direct git push. Config values wired throughout (idle timeout, network policy, agent, egress allowlist/blocklist). CLI: gateway start/stop, doctor, launch, list, attach, logs, stop, warm, audit, approvals, approve, revoke, config get/set/unset, setup. **321 unit tests** (33 files) + **21 E2E tests** (2 files). All 9 packages build.
 
 **v0.1 exit criteria:** `npx yologuard launch --agent claude .` starts a default-deny sandbox, agent runs inside, agent can request permissions via `yologuard-request`, approver approves in CLI, agent creates PR via gateway, full audit trail exists.
 
@@ -137,10 +137,7 @@ Gateway starts, connects to Docker, serves validated REST API (backed by OpenAPI
   - DoH endpoint blocking (dns.google, cloudflare-dns.com)
   - Access logging (domain, allowed/blocked, timestamp)
 - [x] Inject `HTTP_PROXY` / `HTTPS_PROXY` env vars in sandbox pointing to Squid sidecar
-- [x] Controlled DNS resolver on the sidecar:
-  - Only resolves allowlisted domains
-  - NXDOMAIN for everything else
-  - Container `/etc/resolv.conf` points to this resolver
+- [ ] Controlled DNS resolver on the sidecar — config generator exists (`generateDnsmasqConfig`) but not wired into provisioning
 - [x] Fail-closed: if sidecar dies, sandbox has no network path
 - [x] Policy presets: `node-web`, `python-ml`, `fullstack`, `none` (default)
 - [x] Model API proxy route: `http://gateway:4200/v1/...` → forward to model provider
@@ -158,22 +155,22 @@ Sandbox has zero internet access except through Squid sidecar. Only allowlisted 
 
 ### Tasks
 
-- [x] `yologuard-request` binary/script installed in sandbox:
-  - Talks to gateway over unix socket (`/yologuard/gateway.sock`)
+- [x] `yologuard-request` binary/script installed in sandbox
+  - Talks to gateway over unix socket (`/yologuard/gateway.sock`) via socat
   - Request types: `egress.allow`, `repo.add`, `secret.use`, `git.push`, `pr.create`
-  - Blocks until approval (gateway pauses agent via tmux)
+  - Blocks until approval
   - Returns structured response (approved/denied + reason)
-- [x] Gateway approval router:
+- [x] Gateway approval router
   - Receives requests from sandbox over unix socket
   - Queues pending approvals per sandbox
-  - In-memory approval store with scope logic (once/session/TTL)
+  - [x] In-memory approval store with scope logic (once/session/TTL)
   - Dispatches to approver interface (CLI in v0.1)
 - [x] CLI approval interface:
   - `yologuard approve <sandbox-id> <request-id> [--scope once|session|ttl] [--ttl <ms>] [--deny]`
   - `yologuard approvals <sandbox-id>` — list pending approvals
 - [ ] `/yologuard/approvals.json` readable by agent (current approval state)
 - [x] Approval revocation: `yologuard revoke <sandbox-id> <approval-id>`
-- [ ] Dynamic egress: on `egress.allow` approval, update Squid config + DNS resolver live
+- [x] Dynamic egress: on `egress.allow` approval, update Squid config live (DNS resolver not yet wired)
 - [x] All approval decisions persisted in store (+ audit logger for persistence)
 
 ### Deliverable
@@ -189,7 +186,7 @@ Agent calls `yologuard-request egress.allow { "domain": "stripe.com", "reason": 
 
 ### Tasks
 
-- [x] Custom git credential helper script installed in container's global gitconfig
+- [x] Custom git credential helper script installed in container's global gitconfig (socat-based, in features/security/install.sh)
 - [x] Credential helper talks to gateway over unix socket
 - [x] Gateway token store: holds real GitHub/GitLab PATs, issues scoped short-lived creds (5min TTL) per request
 - [x] Branch allowlist: credential helper only returns creds for `yologuard/*` branches (configurable)
@@ -199,7 +196,7 @@ Agent calls `yologuard-request egress.allow { "domain": "stripe.com", "reason": 
   - Force push (pre-push hook as defense-in-depth)
   - Refspec tricks (e.g. `HEAD:main`)
 - [ ] SSH (port 22) blocked at network level — all git goes through HTTPS
-- [ ] `git.push` approval integration: agent requests push permission, approver grants, credential helper then issues creds
+- [x] `git.push` approval integration: agent requests push permission via socket, approver grants via HTTP, `approveRemote()` called on token store
 - [x] Pre-push hook installed in all repos as defense-in-depth
 
 ### Deliverable
@@ -215,7 +212,7 @@ Agent commits locally (unrestricted), requests push permission, gets approved, p
 
 ### Tasks
 
-- [x] `pr-client` package: minimal REST client for GitHub API
+- [x] `pr-client` package: minimal REST client for GitHub API (library only, not wired to approval flow)
   - `POST /repos/:owner/:repo/pulls` — create PR
   - `GET /repos/:owner/:repo/pulls/:number` — get PR
   - `GET /repos/:owner/:repo/pulls` — list PRs (state/head filter)
@@ -321,7 +318,8 @@ Every approval, git op, and network request is logged. `yologuard audit <sandbox
 Build incrementally alongside each milestone:
 
 **After M1:**
-- [x] `yologuard start` — start the gateway daemon
+- [x] `yologuard gateway start` / `yologuard start` — start the gateway daemon
+- [x] `yologuard gateway stop` — stop the gateway daemon (kills process on gateway port)
 - [x] `yologuard doctor` — validate Docker, config, dependencies
 
 **After M2:**
@@ -349,8 +347,8 @@ Build incrementally alongside each milestone:
 
 **Final polish:**
 - [x] `npx yologuard launch --agent claude .` just works (auto-detect everything, auto-attach, `--detach` flag)
-- [ ] `yologuard config get/set/unset` (dot-path config access)
-- [ ] `yologuard setup` — interactive guided setup (agent auth, workspace creation)
+- [x] `yologuard config get/set/unset` (dot-path config access)
+- [x] `yologuard setup` — interactive guided setup (agent, port, network policy, GitHub PAT)
 - [ ] `yologuard workspace create/list/use`
 - [ ] `--preset` flag for security presets
 - [ ] `--prompt` flag for initial agent prompt
@@ -378,16 +376,16 @@ Complete CLI surface for v0.1. Zero-config `npx yologuard launch` experience.
   - Headless Chromium (for agent browser use)
   - Non-root user (`yologuard`)
   - Published to `ghcr.io/yologuard/sandbox:latest`
-- [x] YoloGuard DevContainer Feature (`features/security/`):
-  - `devcontainer-feature.json` manifest
+- [x] YoloGuard DevContainer Feature (`features/security/`)
+  - [x] `devcontainer-feature.json` manifest
   - `install.sh` — installs into any devcontainer:
-    - Git credential helper (→ gateway unix socket)
-    - `yologuard-request` tool
-    - `HTTP_PROXY` / `HTTPS_PROXY` env vars
-    - `/etc/resolv.conf` override (→ controlled DNS)
-    - Pre-push hook template
-    - Audit hooks (shell history capture)
-    - tmux config
+    - [x] Git credential helper (→ gateway unix socket via socat)
+    - [x] `yologuard-request` tool (→ gateway unix socket via socat)
+    - [x] `HTTP_PROXY` / `HTTPS_PROXY` env vars
+    - [ ] `/etc/resolv.conf` override (→ controlled DNS)
+    - [x] Pre-push hook (blocks direct push, enforces gateway flow)
+    - [ ] Audit hooks (shell history capture)
+    - [x] tmux config
   - Published to `ghcr.io/yologuard/features/security:1`
 - [x] Dev Container Templates for common stacks (`templates/node/`, `templates/python/`, etc.)
 

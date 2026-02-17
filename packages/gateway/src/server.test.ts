@@ -1,14 +1,20 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { createGateway } from './server.js'
 
 describe('Gateway server', () => {
 	let gateway: Awaited<ReturnType<typeof createGateway>>
+	let stateDir: string
 
 	beforeAll(async () => {
-		gateway = await createGateway({ config: { host: '127.0.0.1', port: 0 } })
+		stateDir = mkdtempSync(join(tmpdir(), 'yologuard-server-test-'))
+		gateway = await createGateway({ config: { host: '127.0.0.1', port: 0 }, stateDir })
 	})
 
 	afterAll(async () => {
 		await gateway.stop()
+		rmSync(stateDir, { recursive: true, force: true })
 	})
 
 	describe('GET /health', () => {

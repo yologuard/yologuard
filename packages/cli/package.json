@@ -1,6 +1,6 @@
 {
   "name": "yologuard",
-  "version": "0.0.1-pre-alpha.2",
+  "version": "0.0.1-pre-alpha.3",
   "description": "Full-team guardrails for AI coding agents. Lives in Slack.",
   "type": "module",
   "license": "MIT",

@@ -89,6 +89,11 @@ describe('generateDevcontainerConfig', () => {
 		expect(config.containerEnv.YOLOGUARD_SANDBOX_ID).toBe('test-123')
 		expect(config.customizations.yologuard.sandboxId).toBe('test-123')
 		expect(config.customizations.yologuard.managed).toBe(true)
+		expect(config.runArgs).toEqual([
+			'--network', 'none',
+			'--label', 'yologuard=true',
+			'--label', 'yologuard.sandbox-id=test-123',
+		])
 		expect(dockerfile).toContain('FROM mcr.microsoft.com/devcontainers/javascript-node:22')
 		expect(dockerfile).toContain('tmux')
 		expect(dockerfile).toContain('claude-code')

@@ -62,6 +62,7 @@ export type DevcontainerConfig = {
 	readonly name: string
 	readonly build: { readonly dockerfile: string }
 	readonly containerEnv: Record<string, string>
+	readonly runArgs: readonly string[]
 	readonly remoteUser: string
 	readonly customizations: {
 		readonly yologuard: {
@@ -109,6 +110,11 @@ export const generateDevcontainerConfig = ({
 		containerEnv: {
 			YOLOGUARD_SANDBOX_ID: sandboxId,
 		},
+		runArgs: [
+			'--network', 'none',
+			'--label', 'yologuard=true',
+			'--label', `yologuard.sandbox-id=${sandboxId}`,
+		],
 		remoteUser: STACK_USERS[stack],
 		customizations: {
 			yologuard: {

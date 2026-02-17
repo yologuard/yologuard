@@ -149,6 +149,118 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /sandboxes/{sandboxId}/egress:
+    get:
+      operationId: getEgress
+      summary: Get egress configuration for a sandbox
+      parameters:
+        - $ref: '#/components/parameters/SandboxId'
+      responses:
+        '200':
+          description: Egress configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EgressConfig'
+        '404':
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: setEgress
+      summary: Replace egress configuration for a sandbox
+      parameters:
+        - $ref: '#/components/parameters/SandboxId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetEgressRequest'
+      responses:
+        '200':
+          description: Updated egress configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EgressConfig'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sandboxes/{sandboxId}/egress/domains:
+    post:
+      operationId: addEgressDomains
+      summary: Add domains to egress allowlist
+      parameters:
+        - $ref: '#/components/parameters/SandboxId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EgressDomainsRequest'
+      responses:
+        '200':
+          description: Updated egress configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EgressConfig'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: removeEgressDomains
+      summary: Remove domains from egress allowlist
+      parameters:
+        - $ref: '#/components/parameters/SandboxId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EgressDomainsRequest'
+      responses:
+        '200':
+          description: Updated egress configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EgressConfig'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /sandboxes/{sandboxId}/approvals/{approvalId}:
     delete:
       operationId: revokeApproval
@@ -327,3 +439,41 @@ components:
       properties:
         message:
           type: string
+
+    EgressConfig:
+      type: object
+      required: [preset, allowlist]
+      properties:
+        preset:
+          type: string
+        allowlist:
+          type: array
+          items:
+            type: string
+
+    SetEgressRequest:
+      type: object
+      properties:
+        allowlist:
+          type: array
+          items:
+            type: string
+          description: Full replacement allowlist (overrides preset)
+        preset:
+          type: string
+          description: Network policy preset to apply
+        additionalDomains:
+          type: array
+          items:
+            type: string
+          description: Extra domains to add on top of the preset
+
+    EgressDomainsRequest:
+      type: object
+      required: [domains]
+      properties:
+        domains:
+          type: array
+          items:
+            type: string
+          description: Domains to add or remove

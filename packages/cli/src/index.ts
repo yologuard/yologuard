@@ -8,7 +8,13 @@ yologuard v${YOLOGUARD_VERSION}
 Usage: yologuard <command> [options]
 
 Commands:
-  start              Start the gateway server
+  gateway start      Start the gateway server
+  gateway stop       Stop the gateway server
+  start              Alias for gateway start
+  setup              Interactive guided setup
+  config get <key>   Get a config value
+  config set <k> <v> Set a config value
+  config unset <key> Remove a config value
   doctor             Validate environment (Docker, config, Node.js)
   launch [path]      Create a sandbox and launch an agent
   list               List active sandboxes
@@ -20,13 +26,15 @@ Commands:
   approvals <id>     List pending approvals for a sandbox
   approve <id> <req> Approve or deny a pending request
   revoke <id> <appr> Revoke a previously granted approval
+  egress <sandbox>   Show/manage egress allowlist
 
 Options:
   --version          Show version
   --help             Show this help message
 
 Examples:
-  yologuard start
+  yologuard gateway start
+  yologuard gateway stop
   yologuard doctor
   yologuard launch --agent claude .
   yologuard list
@@ -40,8 +48,13 @@ const parseCommand = (args: readonly string[]): { command: string; rest: readonl
 	return { command, rest }
 }
 
-const hasFlag = ({ args, flag }: { readonly args: readonly string[]; readonly flag: string }): boolean =>
-	args.includes(flag)
+const hasFlag = ({
+	args,
+	flag,
+}: {
+	readonly args: readonly string[]
+	readonly flag: string
+}): boolean => args.includes(flag)
 
 const main = async () => {
 	const args = process.argv.slice(2)
@@ -59,9 +72,24 @@ const main = async () => {
 	const { command, rest } = parseCommand(args)
 
 	switch (command) {
+		case 'gateway': {
+			const { gateway } = await import('./commands/gateway.js')
+			await gateway(rest)
+			break
+		}
 		case 'start': {
-			const { start } = await import('./commands/start.js')
-			await start()
+			const { gatewayStart } = await import('./commands/gateway.js')
+			await gatewayStart()
+			break
+		}
+		case 'setup': {
+			const { setup } = await import('./commands/setup.js')
+			await setup()
+			break
+		}
+		case 'config': {
+			const { config } = await import('./commands/config.js')
+			await config(rest)
 			break
 		}
 		case 'doctor': {
@@ -119,6 +147,11 @@ const main = async () => {
 		case 'revoke': {
 			const { revoke } = await import('./commands/revoke.js')
 			await revoke(rest)
+			break
+		}
+		case 'egress': {
+			const { egress } = await import('./commands/egress.js')
+			await egress(rest)
 			break
 		}
 		default: {

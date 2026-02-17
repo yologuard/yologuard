@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
+import { loadConfig } from '@yologuard/shared'
 import { createSandbox, getHealth } from '../gateway-client.js'
 import { attach } from './attach.js'
 
@@ -75,10 +76,11 @@ export const launch = async (args: readonly string[]) => {
 	try {
 		await ensureGateway()
 
+		const userConfig = loadConfig()
 		const repo = resolve(parsed.repo)
 		const sandbox = await createSandbox({
 			repo,
-			agent: parsed.agent,
+			agent: parsed.agent ?? userConfig.sandbox.agent,
 		})
 
 		console.log('Sandbox created:')

@@ -1,5 +1,5 @@
 import Dockerode from 'dockerode'
-import { writeFile, mkdtemp, rm } from 'node:fs/promises'
+import { writeFile, mkdtemp } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { Logger } from '@yologuard/shared'
@@ -55,6 +55,20 @@ export const createSidecar = async ({
 
 	logger.info({ sandboxId, name, squidImage, networkName }, 'Creating squid sidecar')
 
+	// Auto-pull image if not available locally
+	try {
+		await getDocker().getImage(squidImage).inspect()
+	} catch {
+		logger.info({ squidImage }, 'Pulling squid image...')
+		const stream = await getDocker().pull(squidImage)
+		await new Promise<void>((resolve, reject) => {
+			getDocker().modem.followProgress(stream, (err: Error | null) =>
+				err ? reject(err) : resolve(),
+			)
+		})
+		logger.info({ squidImage }, 'Squid image pulled')
+	}
+
 	const container = await getDocker().createContainer({
 		Image: squidImage,
 		name,
@@ -69,6 +83,13 @@ export const createSidecar = async ({
 	})
 
 	await container.start()
+
+	// Connect sidecar to the default bridge network for external internet + DNS access.
+	// The sidecar is already on the internal network (for sandbox communication) — adding
+	// bridge gives it the outbound connectivity needed to proxy allowed requests.
+	const bridge = getDocker().getNetwork('bridge')
+	await bridge.connect({ Container: container.id })
+
 	logger.info({ sandboxId, containerId: container.id }, 'Squid sidecar started')
 	return container
 }
@@ -109,10 +130,22 @@ export const updateAllowlist = async ({
 	const name = containerName(sandboxId)
 	logger.info({ sandboxId, allowlist }, 'Updating squid allowlist')
 
-	const confPath = await writeSquidConf({ allowlist })
 	const container = getDocker().getContainer(name)
 
-	// Copy new config and signal squid to reconfigure
+	// Find the host-side path of the bind-mounted squid.conf
+	const info = await container.inspect()
+	const bind = (info.HostConfig?.Binds ?? []).find((b: string) =>
+		b.includes('/etc/squid/squid.conf'),
+	)
+	if (!bind) {
+		throw new Error(`No squid.conf bind mount found on sidecar ${name}`)
+	}
+	const hostPath = bind.split(':')[0]
+
+	// Overwrite the host file — bind mount makes it visible inside the container
+	await writeFile(hostPath, generateSquidConfig({ allowlist }))
+
+	// Signal squid to reload config
 	const exec = await container.exec({
 		Cmd: ['squid', '-k', 'reconfigure'],
 		AttachStdout: false,
