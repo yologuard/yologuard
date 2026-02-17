@@ -249,6 +249,9 @@ components:
         configPath:
           type: string
           description: Path to generated devcontainer.json (when no existing config found)
+        remoteUser:
+          type: string
+          description: Container user for interactive exec (e.g. node, vscode)
 
     ApprovalRequest:
       type: object

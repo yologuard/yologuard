@@ -10,6 +10,7 @@ type SandboxRecord = {
 	readonly containerId?: string
 	readonly networkPolicy?: string
 	readonly configPath?: string
+	readonly remoteUser?: string
 }
 
 type CreateSandboxParams = {

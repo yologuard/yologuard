@@ -56,6 +56,7 @@ type SandboxRecord = {
 	readonly containerId?: string
 	readonly networkPolicy?: string
 	readonly configPath?: string
+	readonly remoteUser?: string
 }
 
 type SandboxStore = {
@@ -170,8 +171,8 @@ export const registerRoutes = ({
 				logger.info({ sandboxId }, 'Using existing .devcontainer/devcontainer.json')
 			}
 
-			// Store configPath early so `attach` can use it while `up` is still running
-			store.update(sandboxId, { configPath })
+			// Store configPath + remoteUser early so `attach` can use them while `up` is still running
+			store.update(sandboxId, { configPath, remoteUser: config.remoteUser })
 
 			logger.info({ sandboxId }, 'Starting devcontainer up...')
 			const result = await deps.sandboxManager.createSandbox({

@@ -98,7 +98,8 @@ export const generateDevcontainerConfig = ({
 
 	const dockerfile = [
 		`FROM ${image}`,
-		'RUN apt-get update && apt-get install -y tmux && rm -rf /var/lib/apt/lists/*',
+		'RUN apt-get update && apt-get install -y tmux locales && rm -rf /var/lib/apt/lists/* && sed -i "/en_US.UTF-8/s/^# //" /etc/locale.gen && locale-gen',
+		'ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 TERM=xterm-256color',
 		`RUN ${installCmd}`,
 	].join('\n')
 

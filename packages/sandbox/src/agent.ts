@@ -104,15 +104,20 @@ export const getAttachCommand = ({
 	workspacePath,
 	configPath,
 	containerId,
+	remoteUser,
 }: {
 	readonly workspacePath: string
 	readonly configPath?: string
 	readonly containerId?: string
+	readonly remoteUser?: string
 }): string => {
-	const args = ['exec']
+	// Use docker exec -it directly for proper TTY allocation (colors, cursor, resize)
 	if (containerId) {
-		args.push('--container-id', containerId)
+		const userFlag = remoteUser ? `-u ${remoteUser} ` : ''
+		return `docker exec -it ${userFlag}-e TERM=xterm-256color ${containerId} tmux attach-session -t ${TMUX_SESSION_NAME}`
 	}
+	// Fallback to devcontainer exec when no container ID
+	const args = ['exec']
 	args.push('--workspace-folder', workspacePath)
 	if (configPath) {
 		args.push('--config', configPath)

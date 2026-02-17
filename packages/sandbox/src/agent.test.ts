@@ -125,7 +125,28 @@ describe('getAttachCommand', () => {
 		)
 	})
 
-	it('includes --config when configPath is provided', () => {
+	it('uses docker exec -it with remoteUser when containerId is provided', () => {
+		const cmd = getAttachCommand({
+			workspacePath: '/workspace/my-repo',
+			containerId: 'abc123def456',
+			remoteUser: 'node',
+		})
+		expect(cmd).toBe(
+			'docker exec -it -u node -e TERM=xterm-256color abc123def456 tmux attach-session -t yologuard-agent',
+		)
+	})
+
+	it('uses docker exec -it without -u when no remoteUser', () => {
+		const cmd = getAttachCommand({
+			workspacePath: '/workspace/my-repo',
+			containerId: 'abc123def456',
+		})
+		expect(cmd).toBe(
+			'docker exec -it -e TERM=xterm-256color abc123def456 tmux attach-session -t yologuard-agent',
+		)
+	})
+
+	it('falls back to devcontainer exec with --config when no containerId', () => {
 		const cmd = getAttachCommand({
 			workspacePath: '/workspace/my-repo',
 			configPath: '/home/user/.yologuard/configs/abc/devcontainer.json',

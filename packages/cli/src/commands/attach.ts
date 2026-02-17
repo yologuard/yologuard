@@ -7,6 +7,7 @@ type SandboxInfo = {
 	readonly state: string
 	readonly configPath?: string
 	readonly containerId?: string
+	readonly remoteUser?: string
 }
 
 const POLL_INTERVAL_MS = 2_000
@@ -53,6 +54,7 @@ export const attach = async (sandboxId?: string) => {
 			workspacePath: sandbox.repo,
 			configPath: sandbox.configPath,
 			containerId: sandbox.containerId,
+			remoteUser: sandbox.remoteUser,
 		})
 
 		// Retry attach — the agent session may still be starting
