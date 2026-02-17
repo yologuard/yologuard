@@ -2,7 +2,7 @@
 
 Concrete implementation plan for Phase 1: "Default-deny sandbox, approval system, multi-repo."
 
-**Current state:** Turborepo monorepo (pnpm). M0–M5 wired E2E. Gateway with persistent sandbox store, container lifecycle management (health monitors, idle timeout, orphan scanning, state reconciliation), egress provisioning (network → sidecar → container on isolated network). Unix socket server wired into gateway for agent→gateway IPC. Approval handler with blocking `waitForDecision` / `notifyDecision` pattern. Token store loads saved PATs from disk on startup. Real `yologuard-request` and `git-credential-yologuard` scripts in install.sh (socat-based socket communication). Pre-push hook blocks direct git push. Config values wired throughout (idle timeout, network policy, agent, egress allowlist/blocklist). CLI: gateway start/stop, doctor, launch, list, attach, logs, stop, warm, audit, approvals, approve, revoke, config get/set/unset, setup. **321 unit tests** (33 files) + **21 E2E tests** (2 files). All 9 packages build.
+**Current state:** Turborepo monorepo (pnpm). M0–M5 wired E2E. Gateway with persistent sandbox store, container lifecycle management (health monitors, idle timeout, orphan scanning, state reconciliation), egress provisioning (network → sidecar → container on isolated network). Dedicated egress allowlist API (GET/PUT/POST/DELETE) for runtime allowlist management. Squid sidecar connected to bridge network for outbound DNS/internet access. Unix socket server wired into gateway for agent→gateway IPC. Approval handler with blocking `waitForDecision` / `notifyDecision` pattern. Token store loads saved PATs from disk on startup. Real `yologuard-request` and `git-credential-yologuard` scripts in install.sh (socat-based socket communication). Pre-push hook blocks direct git push. Config values wired throughout (idle timeout, network policy, agent, egress allowlist/blocklist). CLI: gateway start/stop, doctor, launch, list, attach, logs, stop, warm, audit, approvals, approve, revoke, egress, config get/set/unset, setup. **345 unit tests** (35 files) + **8 E2E tests** (1 file). All 9 packages build.
 
 **v0.1 exit criteria:** `npx yologuard launch --agent claude .` starts a default-deny sandbox, agent runs inside, agent can request permissions via `yologuard-request`, approver approves in CLI, agent creates PR via gateway, full audit trail exists.
 
@@ -140,6 +140,7 @@ Gateway starts, connects to Docker, serves validated REST API (backed by OpenAPI
 - [ ] Controlled DNS resolver on the sidecar — config generator exists (`generateDnsmasqConfig`) but not wired into provisioning
 - [x] Fail-closed: if sidecar dies, sandbox has no network path
 - [x] Policy presets: `node-web`, `python-ml`, `fullstack`, `none` (default)
+- [x] Egress allowlist API: GET/PUT/POST/DELETE for runtime allowlist management, persisted in sandbox store
 - [x] Model API proxy route: `http://gateway:4200/v1/...` → forward to model provider
 
 ### Deliverable
@@ -334,6 +335,9 @@ Build incrementally alongside each milestone:
 - [x] `yologuard approve <sandbox-id> <request-id>` (non-interactive)
 - [x] `yologuard revoke <sandbox-id> <approval-id>`
 - [x] `yologuard approvals <sandbox-id>` — list pending approvals
+
+**After M3:**
+- [x] `yologuard egress <sandbox>` — show/manage egress allowlist (add/remove/set subcommands)
 
 **After M7:**
 - [x] `yologuard audit <sandbox>` — view audit trail (`--json`, `--type` filters)

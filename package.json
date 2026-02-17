@@ -1,7 +1,7 @@
 {
   "name": "@yologuard/monorepo",
   "private": true,
-  "version": "0.0.1-pre-alpha.3",
+  "version": "0.0.2",
   "description": "Guardrails for AI coding agents",
   "author": "Viljami Kuosmanen <viljami@viljami.io>",
   "license": "MIT",
