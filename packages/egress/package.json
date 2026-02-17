@@ -1,6 +1,6 @@
 {
   "name": "@yologuard/egress",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Squid sidecar config, DNS resolver, and egress allowlist for YoloGuard",
   "type": "module",
   "license": "MIT",

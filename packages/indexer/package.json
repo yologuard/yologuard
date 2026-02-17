@@ -1,6 +1,6 @@
 {
   "name": "@yologuard/indexer",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Codebase indexer — tree-sitter AST parsing for YoloGuard",
   "type": "module",
   "license": "MIT",
