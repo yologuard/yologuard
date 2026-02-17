@@ -2,7 +2,7 @@
 
 Concrete implementation plan for Phase 1: "Default-deny sandbox, approval system, multi-repo."
 
-**Current state:** Turborepo monorepo (pnpm). M0–M8 + M11 complete. M4 (approval system), M5 (credential helper), M6 (PR client), M7 (audit logger) all implemented. Gateway with fully-typed OpenAPI routes (generated via openapicmd typegen) + WebSocket + unix socket + model API proxy + approval store/handler. Credential helper with token store, branch/remote allowlist, pre-push hook. PR client with GitHub REST API (create/get/list PRs, labels, comments) + remote URL parser. Audit logger with SQLite (better-sqlite3), secret redaction, size-cap pruning. CLI with start/doctor/launch/list/attach/logs/stop/warm/audit/approvals/approve/revoke. 282+ tests across 30 test files. All 9 packages build. README.md written.
+**Current state:** Turborepo monorepo (pnpm). M0–M8 + M11 complete. M2 end-to-end wired: `yologuard launch --agent claude .` creates a real devcontainer (auto-detected stack, generated Dockerfile with tmux + agent CLI baked in), launches agent in tmux session, and auto-attaches. M4 (approval system), M5 (credential helper), M6 (PR client), M7 (audit logger) all implemented. Gateway with fully-typed OpenAPI routes (generated via openapicmd typegen) + WebSocket + unix socket + model API proxy + approval store/handler + fire-and-forget sandbox provisioning. Credential helper with token store, branch/remote allowlist, pre-push hook. PR client with GitHub REST API (create/get/list PRs, labels, comments) + remote URL parser. Audit logger with SQLite (better-sqlite3), secret redaction, size-cap pruning. CLI with start/doctor/launch/list/attach/logs/stop/warm/audit/approvals/approve/revoke. 285 tests across 30 test files. All 9 packages build. README.md written.
 
 **v0.1 exit criteria:** `npx yologuard launch --agent claude .` starts a default-deny sandbox, agent runs inside, agent can request permissions via `yologuard-request`, approver approves in CLI, agent creates PR via gateway, full audit trail exists.
 
@@ -348,7 +348,7 @@ Build incrementally alongside each milestone:
 - [ ] `yologuard index` / `yologuard index --background`
 
 **Final polish:**
-- [ ] `npx yologuard launch --agent claude .` just works (auto-detect everything)
+- [x] `npx yologuard launch --agent claude .` just works (auto-detect everything, auto-attach, `--detach` flag)
 - [ ] `yologuard config get/set/unset` (dot-path config access)
 - [ ] `yologuard setup` — interactive guided setup (agent auth, workspace creation)
 - [ ] `yologuard workspace create/list/use`

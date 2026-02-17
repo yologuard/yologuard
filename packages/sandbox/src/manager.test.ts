@@ -1,5 +1,5 @@
 import type { Logger } from '@yologuard/shared'
-import { createSandboxManager } from './manager.js'
+import { createSandboxManager, DEVCONTAINER_JS } from './manager.js'
 import type { DevcontainerConfig } from './detect.js'
 
 const createMockLogger = (): Logger =>
@@ -11,9 +11,18 @@ const createMockLogger = (): Logger =>
 		child: vi.fn(),
 	}) as unknown as Logger
 
+const containerEventStderr = (containerId: string) =>
+	`Container started\nLog: startEventSeen#data {"Type":"container","Action":"start","Actor":{"ID":"${containerId}"}}`
+
+const createMockSpawn = (result: { stdout: string; stderr: string }) =>
+	vi.fn().mockResolvedValue(result)
+
+const createFailingSpawn = (error: Error) =>
+	vi.fn().mockRejectedValue(error)
+
 const createMockConfig = (sandboxId = 'test-sandbox'): DevcontainerConfig => ({
 	name: `yologuard-${sandboxId}`,
-	image: 'mcr.microsoft.com/devcontainers/javascript-node:22',
+	build: { dockerfile: 'Dockerfile' },
 	containerEnv: { YOLOGUARD_SANDBOX_ID: sandboxId },
 	remoteUser: 'node',
 	customizations: { yologuard: { sandboxId, managed: true } },
@@ -21,14 +30,14 @@ const createMockConfig = (sandboxId = 'test-sandbox'): DevcontainerConfig => ({
 
 describe('createSandboxManager', () => {
 	describe('createSandbox', () => {
-		it('should run devcontainer up and return container info on success', async () => {
+		it('should run devcontainer up and parse container ID from stderr event', async () => {
 			const logger = createMockLogger()
-			const execFileImpl = vi.fn().mockResolvedValue({
-				stdout: '{"outcome":"success","containerId":"abc123"}\n',
-				stderr: '',
+			const spawnImpl = createMockSpawn({
+				stdout: '',
+				stderr: containerEventStderr('abc123def456'),
 			})
 
-			const manager = createSandboxManager({ logger, execFileImpl })
+			const manager = createSandboxManager({ logger, spawnImpl })
 
 			const result = await manager.createSandbox({
 				id: 'sandbox-1',
@@ -37,28 +46,25 @@ describe('createSandboxManager', () => {
 				logger,
 			})
 
-			expect(result.containerId).toBe('abc123')
+			expect(result.containerId).toBe('abc123def456')
 			expect(result.state).toBe('running')
-			expect(execFileImpl).toHaveBeenCalledWith(
-				'devcontainer',
-				['up', '--workspace-folder', '/tmp/workspace'],
+			expect(spawnImpl).toHaveBeenCalledWith(
 				expect.objectContaining({
-					timeout: 120_000,
-					env: expect.objectContaining({
-						YOLOGUARD_SANDBOX_ID: 'sandbox-1',
-					}),
+					bin: process.execPath,
+					args: [DEVCONTAINER_JS, 'up', '--remove-existing-container', '--log-level', 'trace', '--workspace-folder', '/tmp/workspace'],
+					timeout: 300_000,
 				}),
 			)
 		})
 
 		it('should pass resource limits as override config', async () => {
 			const logger = createMockLogger()
-			const execFileImpl = vi.fn().mockResolvedValue({
-				stdout: '{"outcome":"success","containerId":"def456"}\n',
-				stderr: '',
+			const spawnImpl = createMockSpawn({
+				stdout: '',
+				stderr: containerEventStderr('def456'),
 			})
 
-			const manager = createSandboxManager({ logger, execFileImpl })
+			const manager = createSandboxManager({ logger, spawnImpl })
 
 			await manager.createSandbox({
 				id: 'sandbox-limits',
@@ -68,21 +74,64 @@ describe('createSandboxManager', () => {
 				logger,
 			})
 
-			const args = execFileImpl.mock.calls[0][1] as string[]
-			expect(args).toContain('--override-config')
-			const configIndex = args.indexOf('--override-config')
-			const configJson = JSON.parse(args[configIndex + 1])
+			const callArgs = spawnImpl.mock.calls[0][0].args as string[]
+			expect(callArgs).toContain('--override-config')
+			const configIndex = callArgs.indexOf('--override-config')
+			const configJson = JSON.parse(callArgs[configIndex + 1])
 			expect(configJson.hostRequirements.cpus).toBe(2)
 			expect(configJson.hostRequirements.memory).toBe('1024mb')
 		})
 
+		it('should pass --config flag when configPath is provided', async () => {
+			const logger = createMockLogger()
+			const spawnImpl = createMockSpawn({
+				stdout: '',
+				stderr: containerEventStderr('cfg789'),
+			})
+
+			const manager = createSandboxManager({ logger, spawnImpl })
+
+			await manager.createSandbox({
+				id: 'sandbox-config',
+				workspacePath: '/tmp/workspace',
+				devcontainerConfig: createMockConfig('sandbox-config'),
+				configPath: '/home/user/.yologuard/configs/sandbox-config/devcontainer.json',
+				logger,
+			})
+
+			const callArgs = spawnImpl.mock.calls[0][0].args as string[]
+			expect(callArgs).toContain('--config')
+			const configIndex = callArgs.indexOf('--config')
+			expect(callArgs[configIndex + 1]).toBe(
+				'/home/user/.yologuard/configs/sandbox-config/devcontainer.json',
+			)
+		})
+
+		it('should not pass --config flag when configPath is not provided', async () => {
+			const logger = createMockLogger()
+			const spawnImpl = createMockSpawn({
+				stdout: '',
+				stderr: containerEventStderr('nocfg'),
+			})
+
+			const manager = createSandboxManager({ logger, spawnImpl })
+
+			await manager.createSandbox({
+				id: 'sandbox-noconfig',
+				workspacePath: '/tmp/workspace',
+				devcontainerConfig: createMockConfig('sandbox-noconfig'),
+				logger,
+			})
+
+			const callArgs = spawnImpl.mock.calls[0][0].args as string[]
+			expect(callArgs).not.toContain('--config')
+		})
+
 		it('should handle devcontainer up failure', async () => {
 			const logger = createMockLogger()
-			const execFileImpl = vi.fn().mockRejectedValue(
-				new Error('devcontainer not found'),
-			)
+			const spawnImpl = createFailingSpawn(new Error('devcontainer not found'))
 
-			const manager = createSandboxManager({ logger, execFileImpl })
+			const manager = createSandboxManager({ logger, spawnImpl })
 
 			await expect(
 				manager.createSandbox({
@@ -94,39 +143,19 @@ describe('createSandboxManager', () => {
 			).rejects.toThrow('devcontainer not found')
 		})
 
-		it('should throw when outcome is error', async () => {
+		it('should return unknown when container ID not found in stderr', async () => {
 			const logger = createMockLogger()
-			const execFileImpl = vi.fn().mockResolvedValue({
-				stdout: '{"outcome":"error","message":"build failed"}\n',
-				stderr: 'build error output',
+			const spawnImpl = createMockSpawn({
+				stdout: '',
+				stderr: 'Container started',
 			})
 
-			const manager = createSandboxManager({ logger, execFileImpl })
+			const manager = createSandboxManager({ logger, spawnImpl })
 
-			await expect(
-				manager.createSandbox({
-					id: 'sandbox-error',
-					workspacePath: '/tmp/workspace',
-					devcontainerConfig: createMockConfig('sandbox-error'),
-					logger,
-				}),
-			).rejects.toThrow('devcontainer up failed: outcome=error')
-		})
-
-		it('should handle non-JSON output gracefully', async () => {
-			const logger = createMockLogger()
-			const execFileImpl = vi.fn().mockResolvedValue({
-				stdout: 'some non-json output\n',
-				stderr: '',
-			})
-
-			const manager = createSandboxManager({ logger, execFileImpl })
-
-			// outcome is 'unknown' which is allowed
 			const result = await manager.createSandbox({
-				id: 'sandbox-nojson',
+				id: 'sandbox-noid',
 				workspacePath: '/tmp/workspace',
-				devcontainerConfig: createMockConfig('sandbox-nojson'),
+				devcontainerConfig: createMockConfig('sandbox-noid'),
 				logger,
 			})
 
@@ -152,9 +181,9 @@ describe('createSandboxManager', () => {
 			})
 
 			expect(execFileImpl).toHaveBeenCalledWith(
-				'devcontainer',
-				['down', '--workspace-folder', '/tmp/workspace'],
-				expect.objectContaining({ timeout: 120_000 }),
+				process.execPath,
+				[DEVCONTAINER_JS, 'down', '--workspace-folder', '/tmp/workspace'],
+				expect.objectContaining({ timeout: 300_000 }),
 			)
 		})
 
@@ -197,15 +226,16 @@ describe('createSandboxManager', () => {
 			expect(result.stderr).toBe('')
 			expect(result.exitCode).toBe(0)
 			expect(execFileImpl).toHaveBeenCalledWith(
-				'devcontainer',
+				process.execPath,
 				[
+					DEVCONTAINER_JS,
 					'exec',
 					'--workspace-folder',
 					'/tmp/workspace',
 					'echo',
 					'hello world',
 				],
-				expect.objectContaining({ timeout: 120_000 }),
+				expect.objectContaining({ timeout: 300_000 }),
 			)
 		})
 

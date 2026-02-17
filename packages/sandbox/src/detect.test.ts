@@ -76,51 +76,58 @@ describe('detectStack', () => {
 })
 
 describe('generateDevcontainerConfig', () => {
-	it('should generate config for node stack', () => {
-		const config = generateDevcontainerConfig({
+	it('should generate config and Dockerfile for node stack', () => {
+		const { config, dockerfile } = generateDevcontainerConfig({
 			workspacePath: tempDir,
 			stack: 'node',
 			sandboxId: 'test-123',
 		})
 
 		expect(config.name).toBe('yologuard-test-123')
-		expect(config.image).toBe(
-			'mcr.microsoft.com/devcontainers/javascript-node:22',
-		)
+		expect(config.build.dockerfile).toBe('Dockerfile')
 		expect(config.remoteUser).toBe('node')
 		expect(config.containerEnv.YOLOGUARD_SANDBOX_ID).toBe('test-123')
 		expect(config.customizations.yologuard.sandboxId).toBe('test-123')
 		expect(config.customizations.yologuard.managed).toBe(true)
+		expect(dockerfile).toContain('FROM mcr.microsoft.com/devcontainers/javascript-node:22')
+		expect(dockerfile).toContain('tmux')
+		expect(dockerfile).toContain('claude-code')
+	})
+
+	it('should generate Dockerfile with correct agent install', () => {
+		const { dockerfile } = generateDevcontainerConfig({
+			workspacePath: tempDir,
+			stack: 'node',
+			sandboxId: 'test-codex',
+			agent: 'codex',
+		})
+
+		expect(dockerfile).toContain('@openai/codex')
 	})
 
 	it('should generate config for python stack', () => {
-		const config = generateDevcontainerConfig({
+		const { config, dockerfile } = generateDevcontainerConfig({
 			workspacePath: tempDir,
 			stack: 'python',
 			sandboxId: 'py-456',
 		})
 
-		expect(config.image).toBe(
-			'mcr.microsoft.com/devcontainers/python:3.12',
-		)
+		expect(dockerfile).toContain('FROM mcr.microsoft.com/devcontainers/python:3.12')
 		expect(config.remoteUser).toBe('vscode')
 	})
 
 	it('should generate config for unknown stack with base image', () => {
-		const config = generateDevcontainerConfig({
+		const { dockerfile } = generateDevcontainerConfig({
 			workspacePath: tempDir,
 			stack: 'unknown',
 			sandboxId: 'unknown-789',
 		})
 
-		expect(config.image).toBe(
-			'mcr.microsoft.com/devcontainers/base:debian',
-		)
-		expect(config.remoteUser).toBe('vscode')
+		expect(dockerfile).toContain('FROM mcr.microsoft.com/devcontainers/base:debian')
 	})
 
 	it('should include host requirements when resource limits provided', () => {
-		const config = generateDevcontainerConfig({
+		const { config } = generateDevcontainerConfig({
 			workspacePath: tempDir,
 			stack: 'node',
 			sandboxId: 'test-limits',
@@ -135,7 +142,7 @@ describe('generateDevcontainerConfig', () => {
 	})
 
 	it('should omit host requirements when no resource limits', () => {
-		const config = generateDevcontainerConfig({
+		const { config } = generateDevcontainerConfig({
 			workspacePath: tempDir,
 			stack: 'go',
 			sandboxId: 'test-no-limits',
@@ -145,7 +152,7 @@ describe('generateDevcontainerConfig', () => {
 	})
 
 	it('should handle partial resource limits', () => {
-		const config = generateDevcontainerConfig({
+		const { config } = generateDevcontainerConfig({
 			workspacePath: tempDir,
 			stack: 'rust',
 			sandboxId: 'test-partial',
@@ -198,9 +205,7 @@ describe('resolveDevcontainerConfig', () => {
 		})
 
 		expect(result.existing).toBe(false)
-		expect(result.config.image).toBe(
-			'mcr.microsoft.com/devcontainers/go:1.22',
-		)
+		expect(result.dockerfile).toContain('FROM mcr.microsoft.com/devcontainers/go:1.22')
 		expect(result.config.containerEnv.YOLOGUARD_SANDBOX_ID).toBe('resolve-1')
 	})
 
@@ -218,9 +223,7 @@ describe('resolveDevcontainerConfig', () => {
 		})
 
 		expect(result.existing).toBe(true)
-		expect(result.config.image).toBe(
-			'mcr.microsoft.com/devcontainers/javascript-node:22',
-		)
+		expect(result.dockerfile).toContain('FROM mcr.microsoft.com/devcontainers/javascript-node:22')
 	})
 
 	it('should forward resource limits', async () => {

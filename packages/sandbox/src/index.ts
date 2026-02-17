@@ -8,7 +8,11 @@ export {
 	type DevcontainerConfig,
 } from './detect.js'
 
-export { createSandboxManager } from './manager.js'
+export {
+	createSandboxManager,
+	DEVCONTAINER_JS,
+	devcontainerCommand,
+} from './manager.js'
 
 export {
 	launchAgent,

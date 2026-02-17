@@ -1,3 +1,6 @@
+import { mkdir, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import type { OpenAPIBackend, Context } from 'openapi-backend'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { YOLOGUARD_VERSION, type Logger, type SandboxState } from '@yologuard/shared'
@@ -52,6 +55,7 @@ type SandboxRecord = {
 	readonly createdAt: string
 	readonly containerId?: string
 	readonly networkPolicy?: string
+	readonly configPath?: string
 }
 
 type SandboxStore = {
@@ -76,6 +80,7 @@ type SandboxManager = {
 		readonly workspacePath: string
 		readonly devcontainerConfig: DevcontainerConfig
 		readonly resourceLimits?: { cpus?: number; memoryMb?: number; diskMb?: number }
+		readonly configPath?: string
 		readonly logger: Logger
 	}) => Promise<{ containerId: string; state: string }>
 	readonly destroySandbox: (params: {
@@ -93,12 +98,14 @@ export type RouteDeps = {
 	readonly resolveDevcontainerConfig?: (params: {
 		readonly workspacePath: string
 		readonly sandboxId: string
+		readonly agent?: AgentType
 		readonly resourceLimits?: { cpus?: number; memoryMb?: number; diskMb?: number }
-	}) => Promise<{ config: DevcontainerConfig; existing: boolean }>
+	}) => Promise<{ config: DevcontainerConfig; dockerfile: string; existing: boolean }>
 	readonly launchAgent?: (params: {
 		readonly workspacePath: string
 		readonly agent: AgentType
 		readonly prompt?: string
+		readonly configPath?: string
 		readonly logger: Logger
 	}) => Promise<void>
 	readonly startHealthMonitor?: (params: {
@@ -132,6 +139,72 @@ export const registerRoutes = ({
 			status: 200,
 		})
 
+	const provisionSandbox = async ({
+		sandboxId,
+		repo,
+		agent,
+	}: {
+		readonly sandboxId: string
+		readonly repo: string
+		readonly agent: string
+	}) => {
+		if (!deps.sandboxManager || !deps.resolveDevcontainerConfig) return
+
+		try {
+			logger.info({ sandboxId }, 'Resolving devcontainer config...')
+			const { config, dockerfile, existing } = await deps.resolveDevcontainerConfig({
+				workspacePath: repo,
+				sandboxId,
+				agent: agent as AgentType,
+			})
+
+			let configPath: string | undefined
+			if (!existing) {
+				const configDir = join(homedir(), '.yologuard', 'configs', sandboxId)
+				await mkdir(configDir, { recursive: true })
+				configPath = join(configDir, 'devcontainer.json')
+				await writeFile(configPath, JSON.stringify(config, null, '\t'))
+				await writeFile(join(configDir, 'Dockerfile'), dockerfile)
+				logger.info({ sandboxId, configPath }, 'Wrote generated devcontainer config')
+			} else {
+				logger.info({ sandboxId }, 'Using existing .devcontainer/devcontainer.json')
+			}
+
+			// Store configPath early so `attach` can use it while `up` is still running
+			store.update(sandboxId, { configPath })
+
+			logger.info({ sandboxId }, 'Starting devcontainer up...')
+			const result = await deps.sandboxManager.createSandbox({
+				id: sandboxId,
+				workspacePath: repo,
+				devcontainerConfig: config,
+				configPath,
+				logger,
+			})
+
+			store.update(sandboxId, {
+				containerId: result.containerId,
+				state: result.state as SandboxState,
+				configPath,
+			})
+
+			if (deps.launchAgent) {
+				logger.info({ sandboxId, agent }, 'Launching agent...')
+				await deps.launchAgent({
+					workspacePath: repo,
+					agent: agent as AgentType,
+					configPath,
+					logger,
+				})
+			}
+
+			logger.info({ sandboxId, containerId: result.containerId }, 'Sandbox created with container')
+		} catch (err) {
+			logger.error({ sandboxId, err }, 'Failed to create sandbox container')
+			store.update(sandboxId, { state: 'stopped' })
+		}
+	}
+
 	const createSandbox: OperationHandler<'createSandbox', FastifyHandlerArgs> = async (c, _req, reply) => {
 		const body = c.request.requestBody
 
@@ -142,42 +215,14 @@ export const registerRoutes = ({
 			networkPolicy: body.networkPolicy ?? 'none',
 		})
 
-		if (deps.sandboxManager && deps.resolveDevcontainerConfig) {
-			try {
-				const { config } = await deps.resolveDevcontainerConfig({
-					workspacePath: body.repo,
-					sandboxId: sandbox.id,
-				})
+		// Fire-and-forget: provision in background so the HTTP response returns immediately
+		provisionSandbox({
+			sandboxId: sandbox.id,
+			repo: body.repo,
+			agent: body.agent ?? 'claude',
+		})
 
-				const result = await deps.sandboxManager.createSandbox({
-					id: sandbox.id,
-					workspacePath: body.repo,
-					devcontainerConfig: config,
-					logger,
-				})
-
-				store.update(sandbox.id, {
-					containerId: result.containerId,
-					state: result.state as SandboxState,
-				})
-
-				if (deps.launchAgent) {
-					await deps.launchAgent({
-						workspacePath: body.repo,
-						agent: (body.agent ?? 'claude') as AgentType,
-						logger,
-					})
-				}
-
-				logger.info({ sandboxId: sandbox.id, containerId: result.containerId }, 'Sandbox created with container')
-			} catch (err) {
-				logger.error({ sandboxId: sandbox.id, err }, 'Failed to create sandbox container')
-				store.update(sandbox.id, { state: 'stopped' })
-			}
-		}
-
-		const updated = store.get(sandbox.id) ?? sandbox
-		return replyJSON({ data: updated, reply, status: 201 })
+		return replyJSON({ data: sandbox, reply, status: 201 })
 	}
 
 	const listSandboxes: OperationHandler<'listSandboxes', FastifyHandlerArgs> = async (_c, _req, reply) =>

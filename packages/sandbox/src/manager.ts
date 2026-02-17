@@ -1,18 +1,35 @@
-import { execFile as execFileCb } from 'node:child_process'
+import { execFile as execFileCb, spawn } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { promisify } from 'node:util'
 import type { Logger, ResourceLimits, SandboxState } from '@yologuard/shared'
 import type { DevcontainerConfig } from './detect.js'
 
 const execFile = promisify(execFileCb)
 
-const DEVCONTAINER_BIN = 'devcontainer' as const
-const DEFAULT_EXEC_TIMEOUT_MS = 120_000 as const
+const DEFAULT_EXEC_TIMEOUT_MS = 300_000 as const
+
+const require = createRequire(import.meta.url)
+
+// Resolve the absolute path to devcontainer.js from @devcontainers/cli
+// This works regardless of whether the binary is on PATH
+export const DEVCONTAINER_JS = require.resolve(
+	'@devcontainers/cli/devcontainer.js',
+)
+
+const devcontainerExecArgs = (subArgs: readonly string[]): [string, string[]] => [
+	process.execPath,
+	[DEVCONTAINER_JS, ...subArgs],
+]
+
+export const devcontainerCommand = (subArgs: readonly string[]): string =>
+	[process.execPath, DEVCONTAINER_JS, ...subArgs].join(' ')
 
 type CreateSandboxParams = {
 	readonly id: string
 	readonly workspacePath: string
 	readonly devcontainerConfig: DevcontainerConfig
 	readonly resourceLimits?: ResourceLimits
+	readonly configPath?: string
 	readonly logger: Logger
 }
 
@@ -51,33 +68,6 @@ type SandboxManager = {
 	readonly getSandboxStatus: (params: GetSandboxStatusParams) => Promise<SandboxState>
 }
 
-type DevcontainerUpOutput = {
-	readonly outcome: string
-	readonly containerId?: string
-}
-
-const parseDevcontainerOutput = (stdout: string): DevcontainerUpOutput => {
-	try {
-		// devcontainer CLI outputs JSON on the last line
-		const lines = stdout.trim().split('\n')
-		for (let i = lines.length - 1; i >= 0; i--) {
-			try {
-				const parsed = JSON.parse(lines[i]) as Record<string, unknown>
-				return {
-					outcome: String(parsed.outcome ?? 'unknown'),
-					containerId: parsed.containerId
-						? String(parsed.containerId)
-						: undefined,
-				}
-			} catch {
-				// not JSON, try next line
-			}
-		}
-	} catch {
-		// ignore parse errors
-	}
-	return { outcome: 'unknown' }
-}
 
 const containerStateToSandboxState = (dockerState: string): SandboxState => {
 	switch (dockerState.toLowerCase()) {
@@ -97,15 +87,94 @@ const containerStateToSandboxState = (dockerState: string): SandboxState => {
 	}
 }
 
+const parseContainerIdFromStderr = (stderr: string): string => {
+	// devcontainer up logs a docker event with the container ID:
+	// Log: startEventSeen#data {"Type":"container","Action":"start","Actor":{"ID":"abc123...",...}}
+	const match = stderr.match(/startEventSeen#data\s*(\{.+\})/)
+	if (match) {
+		try {
+			const event = JSON.parse(match[1]) as { Actor?: { ID?: string } }
+			if (event.Actor?.ID) return event.Actor.ID.slice(0, 12)
+		} catch {
+			// ignore parse errors
+		}
+	}
+	return 'unknown'
+}
+
+type SpawnWithProgressParams = {
+	readonly bin: string
+	readonly args: string[]
+	readonly env?: Record<string, string | undefined>
+	readonly logger: Logger
+	readonly timeout: number
+}
+
+const spawnWithProgress = ({
+	bin,
+	args,
+	env,
+	logger: progressLogger,
+	timeout,
+}: SpawnWithProgressParams): Promise<{ stdout: string; stderr: string }> =>
+	new Promise((resolve, reject) => {
+		const child = spawn(bin, args, { env, timeout })
+		const stdoutChunks: string[] = []
+		const stderrChunks: string[] = []
+		let resolved = false
+
+		child.stdout?.on('data', (chunk: Buffer) => {
+			stdoutChunks.push(chunk.toString())
+		})
+
+		child.stderr?.on('data', (chunk: Buffer) => {
+			const line = chunk.toString().trim()
+			if (line) {
+				stderrChunks.push(line)
+				progressLogger.info({ progress: line }, 'devcontainer')
+			}
+
+			// devcontainer up never exits — it stays attached to the container.
+			// Resolve when we see the docker start event which contains the container ID.
+			if (!resolved && line.includes('startEventSeen')) {
+				resolved = true
+				child.unref()
+				resolve({ stdout: stdoutChunks.join(''), stderr: stderrChunks.join('\n') })
+			}
+		})
+
+		child.on('close', (code) => {
+			if (resolved) return
+			const stdout = stdoutChunks.join('')
+			const stderr = stderrChunks.join('\n')
+			if (code === 0) {
+				resolve({ stdout, stderr })
+			} else {
+				reject(Object.assign(
+					new Error(`Command failed with exit code ${code}`),
+					{ code, stdout, stderr, cmd: [bin, ...args].join(' ') },
+				))
+			}
+		})
+
+		child.on('error', (err) => {
+			if (!resolved) reject(err)
+		})
+	})
+
+type SpawnFn = (params: SpawnWithProgressParams) => Promise<{ stdout: string; stderr: string }>
+
 type CreateSandboxManagerParams = {
 	readonly logger: Logger
 	readonly execFileImpl?: typeof execFile
+	readonly spawnImpl?: SpawnFn
 	readonly dockerInspect?: (containerId: string) => Promise<{ State: { Status: string } }>
 }
 
 export const createSandboxManager = ({
 	logger,
 	execFileImpl = execFile,
+	spawnImpl = spawnWithProgress,
 	dockerInspect,
 }: CreateSandboxManagerParams): SandboxManager => {
 	const createSandbox = async ({
@@ -113,15 +182,23 @@ export const createSandboxManager = ({
 		workspacePath,
 		devcontainerConfig,
 		resourceLimits,
+		configPath,
 		logger: sandboxLogger,
 	}: CreateSandboxParams): Promise<CreateSandboxResult> => {
 		sandboxLogger.info({ sandboxId: id, workspacePath }, 'Creating sandbox')
 
-		const args = [
+		const subArgs = [
 			'up',
+			'--remove-existing-container',
+			'--log-level',
+			'trace',
 			'--workspace-folder',
 			workspacePath,
 		]
+
+		if (configPath) {
+			subArgs.push('--config', configPath)
+		}
 
 		// Pass resource limits via override config
 		if (resourceLimits) {
@@ -136,31 +213,23 @@ export const createSandboxManager = ({
 					}),
 				},
 			}
-			args.push('--override-config', JSON.stringify(overrideConfig))
+			subArgs.push('--override-config', JSON.stringify(overrideConfig))
 		}
 
 		try {
-			const { stdout, stderr } = await execFileImpl(DEVCONTAINER_BIN, args, {
-				timeout: DEFAULT_EXEC_TIMEOUT_MS,
+			const [bin, args] = devcontainerExecArgs(subArgs)
+			const result = await spawnImpl({
+				bin,
+				args,
 				env: {
 					...process.env,
 					YOLOGUARD_SANDBOX_ID: id,
 				},
+				logger: sandboxLogger,
+				timeout: DEFAULT_EXEC_TIMEOUT_MS,
 			})
 
-			if (stderr) {
-				sandboxLogger.debug({ stderr }, 'devcontainer up stderr')
-			}
-
-			const output = parseDevcontainerOutput(stdout)
-
-			if (output.outcome !== 'success' && output.outcome !== 'unknown') {
-				throw new Error(
-					`devcontainer up failed: outcome=${output.outcome}`,
-				)
-			}
-
-			const containerId = output.containerId ?? 'unknown'
+			const containerId = parseContainerIdFromStderr(result.stderr)
 			sandboxLogger.info(
 				{ sandboxId: id, containerId },
 				'Sandbox created successfully',
@@ -187,8 +256,12 @@ export const createSandboxManager = ({
 		sandboxLogger.info({ sandboxId: id, workspacePath }, 'Destroying sandbox')
 
 		try {
-			const args = ['down', '--workspace-folder', workspacePath]
-			const { stderr } = await execFileImpl(DEVCONTAINER_BIN, args, {
+			const [bin, args] = devcontainerExecArgs([
+				'down',
+				'--workspace-folder',
+				workspacePath,
+			])
+			const { stderr } = await execFileImpl(bin, args, {
 				timeout: DEFAULT_EXEC_TIMEOUT_MS,
 			})
 
@@ -218,15 +291,15 @@ export const createSandboxManager = ({
 		)
 
 		try {
-			const args = [
+			const [bin, args] = devcontainerExecArgs([
 				'exec',
 				'--workspace-folder',
 				workspacePath,
 				...command,
-			]
+			])
 
 			const { stdout, stderr } = await execFileImpl(
-				DEVCONTAINER_BIN,
+				bin,
 				args,
 				{ timeout: DEFAULT_EXEC_TIMEOUT_MS },
 			)

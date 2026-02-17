@@ -246,6 +246,9 @@ components:
           type: string
         networkPolicy:
           type: string
+        configPath:
+          type: string
+          description: Path to generated devcontainer.json (when no existing config found)
 
     ApprovalRequest:
       type: object

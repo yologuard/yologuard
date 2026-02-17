@@ -1,4 +1,5 @@
 import { launchAgent, isAgentRunning, getAttachCommand, stopAgent, SUPPORTED_AGENTS } from './agent.js'
+import { DEVCONTAINER_JS } from './manager.js'
 
 vi.mock('node:child_process', () => ({
 	execFile: vi.fn(),
@@ -22,10 +23,11 @@ const mockLogger = {
 
 beforeEach(() => {
 	vi.clearAllMocks()
-	mockExecFile.mockImplementation((_cmd, _args, callback) => {
-		if (typeof callback === 'function') {
-			;(callback as (err: Error | null, stdout: string, stderr: string) => void)(null, '', '')
-		}
+	mockExecFile.mockImplementation((...args: unknown[]) => {
+		const callback = args.find((a) => typeof a === 'function') as
+			| ((err: Error | null, stdout: string, stderr: string) => void)
+			| undefined
+		callback?.(null, '', '')
 		return undefined as never
 	})
 })
@@ -38,22 +40,11 @@ describe('agent launcher', () => {
 			logger: mockLogger,
 		})
 
-		expect(mockExecFile).toHaveBeenCalledWith(
-			'devcontainer',
-			[
-				'exec',
-				'--workspace-folder',
-				'/workspace/my-repo',
-				'bash',
-				'-c',
-				expect.stringContaining('tmux new-session'),
-			],
-			expect.any(Function),
-		)
-
-		const bashCommand = mockExecFile.mock.calls[0]?.[1]?.[5] as string
-		expect(bashCommand).toContain('claude --dangerously-skip-permissions')
-		expect(bashCommand).toContain('yologuard-agent')
+		expect(mockExecFile).toHaveBeenCalledTimes(1)
+		const tmuxCommand = mockExecFile.mock.calls[0]?.[1]?.[6] as string
+		expect(tmuxCommand).toContain('tmux new-session')
+		expect(tmuxCommand).toContain('claude --dangerously-skip-permissions')
+		expect(tmuxCommand).toContain('yologuard-agent')
 	})
 
 	it('launches codex agent', async () => {
@@ -63,8 +54,8 @@ describe('agent launcher', () => {
 			logger: mockLogger,
 		})
 
-		const bashCommand = mockExecFile.mock.calls[0]?.[1]?.[5] as string
-		expect(bashCommand).toContain('codex --full-auto')
+		const tmuxCommand = mockExecFile.mock.calls[0]?.[1]?.[6] as string
+		expect(tmuxCommand).toContain('codex --full-auto')
 	})
 
 	it('launches opencode agent', async () => {
@@ -74,8 +65,8 @@ describe('agent launcher', () => {
 			logger: mockLogger,
 		})
 
-		const bashCommand = mockExecFile.mock.calls[0]?.[1]?.[5] as string
-		expect(bashCommand).toContain('opencode')
+		const tmuxCommand = mockExecFile.mock.calls[0]?.[1]?.[6] as string
+		expect(tmuxCommand).toContain('opencode')
 	})
 
 	it('passes prompt to agent command', async () => {
@@ -86,9 +77,9 @@ describe('agent launcher', () => {
 			logger: mockLogger,
 		})
 
-		const bashCommand = mockExecFile.mock.calls[0]?.[1]?.[5] as string
-		expect(bashCommand).toContain('--prompt')
-		expect(bashCommand).toContain('Fix the login bug')
+		const tmuxCommand = mockExecFile.mock.calls[0]?.[1]?.[6] as string
+		expect(tmuxCommand).toContain('--prompt')
+		expect(tmuxCommand).toContain('Fix the login bug')
 	})
 
 	it('exports supported agent types', () => {
@@ -109,10 +100,11 @@ describe('isAgentRunning', () => {
 	})
 
 	it('returns false when tmux session does not exist', async () => {
-		mockExecFile.mockImplementation((_cmd, _args, callback) => {
-			if (typeof callback === 'function') {
-				;(callback as (err: Error | null) => void)(new Error('session not found'))
-			}
+		mockExecFile.mockImplementation((...args: unknown[]) => {
+			const callback = args.find((a) => typeof a === 'function') as
+				| ((err: Error | null) => void)
+				| undefined
+			callback?.(new Error('session not found'))
 			return undefined as never
 		})
 
@@ -129,7 +121,17 @@ describe('getAttachCommand', () => {
 	it('returns the correct tmux attach command', () => {
 		const cmd = getAttachCommand({ workspacePath: '/workspace/my-repo' })
 		expect(cmd).toBe(
-			'devcontainer exec --workspace-folder /workspace/my-repo tmux attach-session -t yologuard-agent',
+			`${process.execPath} ${DEVCONTAINER_JS} exec --workspace-folder /workspace/my-repo tmux attach-session -t yologuard-agent`,
+		)
+	})
+
+	it('includes --config when configPath is provided', () => {
+		const cmd = getAttachCommand({
+			workspacePath: '/workspace/my-repo',
+			configPath: '/home/user/.yologuard/configs/abc/devcontainer.json',
+		})
+		expect(cmd).toBe(
+			`${process.execPath} ${DEVCONTAINER_JS} exec --workspace-folder /workspace/my-repo --config /home/user/.yologuard/configs/abc/devcontainer.json tmux attach-session -t yologuard-agent`,
 		)
 	})
 })
@@ -141,16 +143,17 @@ describe('stopAgent', () => {
 			logger: mockLogger,
 		})
 
-		const bashCommand = mockExecFile.mock.calls[0]?.[1]?.[5] as string
+		const bashCommand = mockExecFile.mock.calls[0]?.[1]?.[6] as string
 		expect(bashCommand).toContain('tmux kill-session')
 		expect(bashCommand).toContain('yologuard-agent')
 	})
 
 	it('handles non-existent session gracefully', async () => {
-		mockExecFile.mockImplementation((_cmd, _args, callback) => {
-			if (typeof callback === 'function') {
-				;(callback as (err: Error | null) => void)(new Error('no session'))
-			}
+		mockExecFile.mockImplementation((...args: unknown[]) => {
+			const callback = args.find((a) => typeof a === 'function') as
+				| ((err: Error | null) => void)
+				| undefined
+			callback?.(new Error('no session'))
 			return undefined as never
 		})
 

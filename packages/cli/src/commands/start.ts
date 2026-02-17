@@ -7,6 +7,7 @@ export const start = async () => {
 
 	const gateway = await createGateway({
 		config: { host: config.gateway.host, port: config.gateway.port },
+		enableSandboxManager: true,
 	})
 
 	const shutdown = async () => {

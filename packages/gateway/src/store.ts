@@ -9,6 +9,7 @@ type SandboxRecord = {
 	readonly createdAt: string
 	readonly containerId?: string
 	readonly networkPolicy?: string
+	readonly configPath?: string
 }
 
 type CreateSandboxParams = {

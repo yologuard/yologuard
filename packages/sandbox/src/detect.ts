@@ -1,6 +1,7 @@
 import { access, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ResourceLimits } from '@yologuard/shared'
+import type { AgentType } from './agent.js'
 
 export const STACK_TYPES = ['node', 'python', 'go', 'rust', 'unknown'] as const
 export type StackType = (typeof STACK_TYPES)[number]
@@ -51,9 +52,15 @@ export const detectStack = async ({
 	return 'unknown'
 }
 
+const AGENT_INSTALL_COMMANDS = {
+	claude: 'npm install -g @anthropic-ai/claude-code',
+	codex: 'npm install -g @openai/codex',
+	opencode: 'npm install -g opencode',
+} as const satisfies Record<AgentType, string>
+
 export type DevcontainerConfig = {
 	readonly name: string
-	readonly image: string
+	readonly build: { readonly dockerfile: string }
 	readonly containerEnv: Record<string, string>
 	readonly remoteUser: string
 	readonly customizations: {
@@ -69,19 +76,35 @@ export type DevcontainerConfig = {
 	}
 }
 
+export type GeneratedDevcontainer = {
+	readonly config: DevcontainerConfig
+	readonly dockerfile: string
+}
+
 export const generateDevcontainerConfig = ({
 	stack,
 	sandboxId,
+	agent = 'claude',
 	resourceLimits,
 }: {
 	readonly workspacePath: string
 	readonly stack: StackType
 	readonly sandboxId: string
+	readonly agent?: AgentType
 	readonly resourceLimits?: ResourceLimits
-}): DevcontainerConfig => {
+}): GeneratedDevcontainer => {
+	const image = STACK_IMAGES[stack]
+	const installCmd = AGENT_INSTALL_COMMANDS[agent]
+
+	const dockerfile = [
+		`FROM ${image}`,
+		'RUN apt-get update && apt-get install -y tmux && rm -rf /var/lib/apt/lists/*',
+		`RUN ${installCmd}`,
+	].join('\n')
+
 	const config: DevcontainerConfig = {
 		name: `yologuard-${sandboxId}`,
-		image: STACK_IMAGES[stack],
+		build: { dockerfile: 'Dockerfile' },
 		containerEnv: {
 			YOLOGUARD_SANDBOX_ID: sandboxId,
 		},
@@ -104,7 +127,7 @@ export const generateDevcontainerConfig = ({
 			},
 		}),
 	}
-	return config
+	return { config, dockerfile }
 }
 
 export const hasExistingDevcontainer = async ({
@@ -124,36 +147,22 @@ export const hasExistingDevcontainer = async ({
 export const resolveDevcontainerConfig = async ({
 	workspacePath,
 	sandboxId,
+	agent,
 	resourceLimits,
 }: {
 	readonly workspacePath: string
 	readonly sandboxId: string
+	readonly agent?: AgentType
 	readonly resourceLimits?: ResourceLimits
-}): Promise<{ readonly config: DevcontainerConfig; readonly existing: boolean }> => {
+}): Promise<{ readonly config: DevcontainerConfig; readonly dockerfile: string; readonly existing: boolean }> => {
 	const existing = await hasExistingDevcontainer({ workspacePath })
-	if (existing) {
-		// When an existing devcontainer.json is found, we still generate
-		// our config but mark it so the caller knows to merge/override
-		const stack = await detectStack({ workspacePath })
-		return {
-			config: generateDevcontainerConfig({
-				workspacePath,
-				stack,
-				sandboxId,
-				resourceLimits,
-			}),
-			existing: true,
-		}
-	}
-
 	const stack = await detectStack({ workspacePath })
-	return {
-		config: generateDevcontainerConfig({
-			workspacePath,
-			stack,
-			sandboxId,
-			resourceLimits,
-		}),
-		existing: false,
-	}
+	const { config, dockerfile } = generateDevcontainerConfig({
+		workspacePath,
+		stack,
+		sandboxId,
+		agent,
+		resourceLimits,
+	})
+	return { config, dockerfile, existing }
 }
