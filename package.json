@@ -1,0 +1,26 @@
+{
+  "name": "agenthole",
+  "description": "",
+  "version": "0.0.1",
+  "author": "Viljami Kuosmanen <viljami@viljami.io>",
+  "license": "MIT",
+  "homepage": "https://agenthole.ai",
+  "type": "module",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "agenthole": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "devDependencies": {
+    "@tsconfig/node20": "^20.1.9",
+    "@types/node": "^25.2.3",
+    "typescript": "^5.9.3"
+  }
+}

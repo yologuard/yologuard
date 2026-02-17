@@ -1,0 +1,5 @@
+# agenthole
+
+```
+npx agenthole
+```
