@@ -1,23 +1,33 @@
 {
-  "name": "agenthole",
+  "name": "yologuard",
   "description": "",
-  "version": "0.0.1",
+  "version": "0.0.1-pre-alpha.1",
   "author": "Viljami Kuosmanen <viljami@viljami.io>",
   "license": "MIT",
-  "homepage": "https://agenthole.ai",
+  "homepage": "https://yologuard.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yologuard/yologuard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yologuard/yologuard/issues"
+  },
   "type": "module",
   "main": "dist/index.js",
   "files": [
     "dist"
   ],
   "bin": {
-    "agenthole": "dist/index.js"
+    "yologuard": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": [],
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.9",
     "@types/node": "^25.2.3",

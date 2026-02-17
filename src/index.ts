@@ -3,7 +3,7 @@
 import packageJson from "../package.json" with { type: "json" };
 
 const main = () => {
-  console.log(`agenthole v${packageJson.version}`);
+  console.log(`yologuard v${packageJson.version}`);
   process.exit(0);
 };
 
