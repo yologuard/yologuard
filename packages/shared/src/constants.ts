@@ -18,47 +18,47 @@ export const SOCKET_PATH = '/yologuard/gateway.sock' as const
 export const PROTECTED_BRANCHES = ['main', 'master', 'production'] as const
 
 export const KNOWN_EXFILTRATION_DOMAINS = [
-	// Paste services
-	'pastebin.com',
-	'paste.ee',
-	'dpaste.com',
-	'hastebin.com',
-	'ix.io',
-	'sprunge.us',
-	'paste.mozilla.org',
-	'ghostbin.com',
-	'rentry.co',
-	'controlc.com',
-	// File sharing
-	'file.io',
-	'transfer.sh',
-	'0x0.st',
-	'filebin.net',
-	'gofile.io',
-	'temp.sh',
-	'bashupload.com',
-	// Tunneling / reverse proxy
-	'.ngrok.io',
-	'.ngrok-free.app',
-	'.serveo.net',
-	'.localtunnel.me',
-	'.loca.lt',
-	'.localhost.run',
-	// Webhook services
-	'webhook.site',
-	'requestbin.com',
-	'.pipedream.net',
-	'hookbin.com',
+  // Paste services
+  'pastebin.com',
+  'paste.ee',
+  'dpaste.com',
+  'hastebin.com',
+  'ix.io',
+  'sprunge.us',
+  'paste.mozilla.org',
+  'ghostbin.com',
+  'rentry.co',
+  'controlc.com',
+  // File sharing
+  'file.io',
+  'transfer.sh',
+  '0x0.st',
+  'filebin.net',
+  'gofile.io',
+  'temp.sh',
+  'bashupload.com',
+  // Tunneling / reverse proxy
+  '.ngrok.io',
+  '.ngrok-free.app',
+  '.serveo.net',
+  '.localtunnel.me',
+  '.loca.lt',
+  '.localhost.run',
+  // Webhook services
+  'webhook.site',
+  'requestbin.com',
+  '.pipedream.net',
+  'hookbin.com',
 ] as const
 
 export const DOH_ENDPOINTS = ['dns.google', 'cloudflare-dns.com', 'doh.opendns.com'] as const
 
 export const APPROVAL_REQUEST_TYPES = [
-	'egress.allow',
-	'repo.add',
-	'secret.use',
-	'git.push',
-	'pr.create',
+  'egress.allow',
+  'repo.add',
+  'secret.use',
+  'git.push',
+  'pr.create',
 ] as const
 
 export const SANDBOX_STATES = ['creating', 'running', 'paused', 'stopping', 'stopped'] as const

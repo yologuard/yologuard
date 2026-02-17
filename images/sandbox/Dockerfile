@@ -4,6 +4,7 @@ FROM debian:bookworm-slim
 # Install essential tools in a single layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    vim \
     curl \
     tmux \
     build-essential \

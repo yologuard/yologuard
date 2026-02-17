@@ -1,52 +1,57 @@
 export {
-	detectStack,
-	generateDevcontainerConfig,
-	hasExistingDevcontainer,
-	resolveDevcontainerConfig,
-	STACK_TYPES,
-	type StackType,
-	type DevcontainerConfig,
+  detectStack,
+  generateDevcontainerConfig,
+  hasExistingDevcontainer,
+  resolveDevcontainerConfig,
+  STACK_TYPES,
+  type StackType,
+  type DevcontainerConfig,
 } from './detect.js'
 
 export {
-	createSandboxManager,
-	DEVCONTAINER_JS,
-	devcontainerCommand,
+  createSandboxManager,
+  DEVCONTAINER_JS,
+  devcontainerCommand,
 } from './manager.js'
 
 export {
-	launchAgent,
-	isAgentRunning,
-	getAttachCommand,
-	getShellCommand,
-	stopAgent,
-	SUPPORTED_AGENTS,
-	type AgentType,
+  launchAgent,
+  isAgentRunning,
+  getAttachCommand,
+  getShellCommand,
+  stopAgent,
+  SUPPORTED_AGENTS,
+  type AgentType,
 } from './agent.js'
 
 export {
-	startHealthMonitor,
-	stopHealthMonitor,
-	reportActivity,
-	isMonitoring,
-	stopAllMonitors,
+  startHealthMonitor,
+  stopHealthMonitor,
+  reportActivity,
+  isMonitoring,
+  stopAllMonitors,
 } from './health.js'
 
 export {
-	ensureBareClone,
-	createWorktree,
-	removeWorktree,
-	pruneWorktrees,
-	warmCache,
-	hashRepoUrl,
+  ensureBareClone,
+  createWorktree,
+  removeWorktree,
+  pruneWorktrees,
+  warmCache,
+  hashRepoUrl,
 } from './worktree.js'
 
 export {
-	configureSparseCheckout,
-	isSparseCheckout,
+  configureSparseCheckout,
+  isSparseCheckout,
 } from './sparse.js'
 
 export {
-	prepareRepos,
-	cleanupRepos,
+  findSecurityFeaturePath,
+  copySecurityFeature,
+} from './feature.js'
+
+export {
+  prepareRepos,
+  cleanupRepos,
 } from './repo-manager.js'

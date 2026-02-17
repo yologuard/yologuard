@@ -16,7 +16,9 @@ const MARKERS = {
   END: '<!-- /docs-index -->',
 } as const
 
-const extractMarkdownMeta = (filePath: string): { title: string | null; position: number | null } => {
+const extractMarkdownMeta = (
+  filePath: string,
+): { title: string | null; position: number | null } => {
   const content = readFileSync(filePath, 'utf-8')
 
   let title: string | null = null
@@ -73,7 +75,13 @@ const buildTree = ({ dirPath, rootPath }: { dirPath: string; rootPath: string })
   return treeEntries.sort((a, b) => a.position - b.position)
 }
 
-const formatDirectoryEntry = ({ entry, parentPath = '' }: { entry: TreeEntry; parentPath?: string }): string[] => {
+const formatDirectoryEntry = ({
+  entry,
+  parentPath = '',
+}: {
+  entry: TreeEntry
+  parentPath?: string
+}): string[] => {
   const currentPath = parentPath ? `${parentPath}/${entry.name}` : entry.name
 
   const directFiles = entry.children.filter((child) => !child.isDirectory)
@@ -93,7 +101,13 @@ const formatDirectoryEntry = ({ entry, parentPath = '' }: { entry: TreeEntry; pa
   return lines
 }
 
-const generateCompressedIndex = ({ docsDir, rootPath }: { docsDir: string; rootPath: string }): string => {
+const generateCompressedIndex = ({
+  docsDir,
+  rootPath,
+}: {
+  docsDir: string
+  rootPath: string
+}): string => {
   const tree = buildTree({ dirPath: docsDir, rootPath: docsDir })
 
   const header = [

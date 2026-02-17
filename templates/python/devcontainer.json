@@ -1,11 +1,11 @@
 {
-    "name": "YoloGuard Python Sandbox",
-    "image": "mcr.microsoft.com/devcontainers/python:3.12",
-    "features": {
-        "ghcr.io/yologuard/features/security:1": {}
-    },
-    "containerEnv": {
-        "YOLOGUARD_SANDBOX": "true"
-    },
-    "remoteUser": "vscode"
+  "name": "YoloGuard Python Sandbox",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/yologuard/features/security:1": {}
+  },
+  "containerEnv": {
+    "YOLOGUARD_SANDBOX": "true"
+  },
+  "remoteUser": "vscode"
 }

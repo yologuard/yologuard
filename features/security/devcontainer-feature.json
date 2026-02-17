@@ -1,40 +1,40 @@
 {
-    "id": "security",
-    "version": "1.0.0",
-    "name": "YoloGuard Security Layer",
-    "description": "Installs YoloGuard security components: credential helper, request tool, proxy config, audit hooks",
-    "documentationURL": "https://github.com/yologuard/yologuard",
-    "options": {
-        "installCredentialHelper": {
-            "type": "boolean",
-            "default": true,
-            "description": "Install git credential helper that routes through gateway"
-        },
-        "installRequestTool": {
-            "type": "boolean",
-            "default": true,
-            "description": "Install yologuard-request CLI tool"
-        },
-        "configureProxy": {
-            "type": "boolean",
-            "default": true,
-            "description": "Configure HTTP/HTTPS proxy environment variables"
-        },
-        "configureDns": {
-            "type": "boolean",
-            "default": true,
-            "description": "Override DNS resolver to use controlled resolver"
-        },
-        "installPrePushHook": {
-            "type": "boolean",
-            "default": true,
-            "description": "Install git pre-push hook for defense-in-depth"
-        },
-        "gatewaySocketPath": {
-            "type": "string",
-            "default": "/yologuard/gateway.sock",
-            "description": "Path to gateway unix socket"
-        }
+  "id": "security",
+  "version": "1.0.0",
+  "name": "YoloGuard Security Layer",
+  "description": "Installs YoloGuard security components: credential helper, request tool, proxy config, audit hooks",
+  "documentationURL": "https://github.com/yologuard/yologuard",
+  "options": {
+    "installCredentialHelper": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install git credential helper that routes through gateway"
     },
-    "installsAfter": ["ghcr.io/devcontainers/features/common-utils"]
+    "installRequestTool": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install yologuard-request CLI tool"
+    },
+    "configureProxy": {
+      "type": "boolean",
+      "default": true,
+      "description": "Configure HTTP/HTTPS proxy environment variables"
+    },
+    "configureDns": {
+      "type": "boolean",
+      "default": true,
+      "description": "Override DNS resolver to use controlled resolver"
+    },
+    "installPrePushHook": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install git pre-push hook for defense-in-depth"
+    },
+    "gatewaySocketPath": {
+      "type": "string",
+      "default": "/yologuard/gateway.sock",
+      "description": "Path to gateway unix socket"
+    }
+  },
+  "installsAfter": ["ghcr.io/devcontainers/features/common-utils"]
 }

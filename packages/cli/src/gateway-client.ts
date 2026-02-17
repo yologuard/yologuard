@@ -1,142 +1,142 @@
 import type {
-	ApprovalDecision,
-	ApprovalRequest,
-	HealthResponse,
-	SandboxConfig,
+  ApprovalDecision,
+  ApprovalRequest,
+  HealthResponse,
+  SandboxConfig,
 } from '@yologuard/shared'
 import { loadConfig } from '@yologuard/shared'
 
 type CreateSandboxParams = {
-	readonly repo: string
-	readonly agent?: string
-	readonly branch?: string
-	readonly networkPolicy?: string
+  readonly repo: string
+  readonly agent?: string
+  readonly branch?: string
+  readonly networkPolicy?: string
 }
 
 type GatewayError = {
-	readonly status: number
-	readonly error: string
+  readonly status: number
+  readonly error: string
 }
 
 const getBaseUrl = (): string => {
-	const config = loadConfig()
-	return `http://${config.gateway.host}:${config.gateway.port}`
+  const config = loadConfig()
+  return `http://${config.gateway.host}:${config.gateway.port}`
 }
 
 const request = async <T>({
-	method,
-	path,
-	body,
+  method,
+  path,
+  body,
 }: {
-	readonly method: string
-	readonly path: string
-	readonly body?: unknown
+  readonly method: string
+  readonly path: string
+  readonly body?: unknown
 }): Promise<T> => {
-	const baseUrl = getBaseUrl()
-	const url = `${baseUrl}${path}`
+  const baseUrl = getBaseUrl()
+  const url = `${baseUrl}${path}`
 
-	const response = await fetch(url, {
-		method,
-		headers: body ? { 'Content-Type': 'application/json' } : undefined,
-		body: body ? JSON.stringify(body) : undefined,
-	})
+  const response = await fetch(url, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  })
 
-	const data = (await response.json()) as T | GatewayError
+  const data = (await response.json()) as T | GatewayError
 
-	if (!response.ok) {
-		const err = data as GatewayError
-		throw new Error(`Gateway error (${response.status}): ${err.error ?? response.statusText}`)
-	}
+  if (!response.ok) {
+    const err = data as GatewayError
+    throw new Error(`Gateway error (${response.status}): ${err.error ?? response.statusText}`)
+  }
 
-	return data as T
+  return data as T
 }
 
 export const listSandboxes = (): Promise<SandboxConfig[]> =>
-	request<SandboxConfig[]>({ method: 'GET', path: '/sandboxes' })
+  request<SandboxConfig[]>({ method: 'GET', path: '/sandboxes' })
 
 export const createSandbox = (params: CreateSandboxParams): Promise<SandboxConfig> =>
-	request<SandboxConfig>({ method: 'POST', path: '/sandboxes', body: params })
+  request<SandboxConfig>({ method: 'POST', path: '/sandboxes', body: params })
 
 export const getSandbox = (id: string): Promise<SandboxConfig> =>
-	request<SandboxConfig>({ method: 'GET', path: `/sandboxes/${id}` })
+  request<SandboxConfig>({ method: 'GET', path: `/sandboxes/${id}` })
 
 export const deleteSandbox = (id: string): Promise<{ message: string }> =>
-	request<{ message: string }>({ method: 'DELETE', path: `/sandboxes/${id}` })
+  request<{ message: string }>({ method: 'DELETE', path: `/sandboxes/${id}` })
 
 export const getHealth = (): Promise<HealthResponse> =>
-	request<HealthResponse>({ method: 'GET', path: '/health' })
+  request<HealthResponse>({ method: 'GET', path: '/health' })
 
 export const listApprovals = (sandboxId: string): Promise<ApprovalRequest[]> =>
-	request<ApprovalRequest[]>({ method: 'GET', path: `/sandboxes/${sandboxId}/approvals` })
+  request<ApprovalRequest[]>({ method: 'GET', path: `/sandboxes/${sandboxId}/approvals` })
 
 type ApproveRequestParams = {
-	readonly sandboxId: string
-	readonly requestId: string
-	readonly approved: boolean
-	readonly scope: string
-	readonly ttlMs?: number
-	readonly reason?: string
+  readonly sandboxId: string
+  readonly requestId: string
+  readonly approved: boolean
+  readonly scope: string
+  readonly ttlMs?: number
+  readonly reason?: string
 }
 
 export const approveRequest = ({
-	sandboxId,
-	...body
+  sandboxId,
+  ...body
 }: ApproveRequestParams): Promise<ApprovalDecision> =>
-	request<ApprovalDecision>({ method: 'POST', path: `/sandboxes/${sandboxId}/approve`, body })
+  request<ApprovalDecision>({ method: 'POST', path: `/sandboxes/${sandboxId}/approve`, body })
 
 export const revokeApproval = ({
-	sandboxId,
-	approvalId,
+  sandboxId,
+  approvalId,
 }: {
-	readonly sandboxId: string
-	readonly approvalId: string
+  readonly sandboxId: string
+  readonly approvalId: string
 }): Promise<{ message: string }> =>
-	request<{ message: string }>({
-		method: 'DELETE',
-		path: `/sandboxes/${sandboxId}/approvals/${approvalId}`,
-	})
+  request<{ message: string }>({
+    method: 'DELETE',
+    path: `/sandboxes/${sandboxId}/approvals/${approvalId}`,
+  })
 
 export type EgressConfig = {
-	readonly preset: string
-	readonly allowlist: string[]
+  readonly preset: string
+  readonly allowlist: string[]
 }
 
 export const getEgress = (sandboxId: string): Promise<EgressConfig> =>
-	request<EgressConfig>({ method: 'GET', path: `/sandboxes/${sandboxId}/egress` })
+  request<EgressConfig>({ method: 'GET', path: `/sandboxes/${sandboxId}/egress` })
 
 export const setEgress = ({
-	sandboxId,
-	...body
+  sandboxId,
+  ...body
 }: {
-	readonly sandboxId: string
-	readonly allowlist?: string[]
-	readonly preset?: string
-	readonly additionalDomains?: string[]
+  readonly sandboxId: string
+  readonly allowlist?: string[]
+  readonly preset?: string
+  readonly additionalDomains?: string[]
 }): Promise<EgressConfig> =>
-	request<EgressConfig>({ method: 'PUT', path: `/sandboxes/${sandboxId}/egress`, body })
+  request<EgressConfig>({ method: 'PUT', path: `/sandboxes/${sandboxId}/egress`, body })
 
 export const addEgressDomains = ({
-	sandboxId,
-	domains,
+  sandboxId,
+  domains,
 }: {
-	readonly sandboxId: string
-	readonly domains: string[]
+  readonly sandboxId: string
+  readonly domains: string[]
 }): Promise<EgressConfig> =>
-	request<EgressConfig>({
-		method: 'POST',
-		path: `/sandboxes/${sandboxId}/egress/domains`,
-		body: { domains },
-	})
+  request<EgressConfig>({
+    method: 'POST',
+    path: `/sandboxes/${sandboxId}/egress/domains`,
+    body: { domains },
+  })
 
 export const removeEgressDomains = ({
-	sandboxId,
-	domains,
+  sandboxId,
+  domains,
 }: {
-	readonly sandboxId: string
-	readonly domains: string[]
+  readonly sandboxId: string
+  readonly domains: string[]
 }): Promise<EgressConfig> =>
-	request<EgressConfig>({
-		method: 'DELETE',
-		path: `/sandboxes/${sandboxId}/egress/domains`,
-		body: { domains },
-	})
+  request<EgressConfig>({
+    method: 'DELETE',
+    path: `/sandboxes/${sandboxId}/egress/domains`,
+    body: { domains },
+  })
