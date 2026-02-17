@@ -1,6 +1,6 @@
 {
   "name": "@yologuard/sandbox",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Sandbox manager — wraps @devcontainers/cli for YoloGuard",
   "type": "module",
   "license": "MIT",

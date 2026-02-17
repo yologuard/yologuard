@@ -1,6 +1,6 @@
 {
   "name": "@yologuard/gateway",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "YoloGuard control plane — Fastify + OpenAPI gateway server",
   "type": "module",
   "license": "MIT",

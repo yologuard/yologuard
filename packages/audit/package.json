@@ -1,6 +1,6 @@
 {
   "name": "@yologuard/audit",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Audit logger — SQLite per-sandbox security trail for YoloGuard",
   "type": "module",
   "license": "MIT",
