@@ -1,4 +1,5 @@
 import { OpenAPIBackend } from 'openapi-backend'
+import * as ajvFormats from 'ajv-formats'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
@@ -22,6 +23,11 @@ export const createOpenApiBackend = async (): Promise<OpenAPIBackend> => {
 		definition: findSpecPath(),
 		strict: true,
 		validate: true,
+		customizeAjv: (ajv) => {
+			const addFormats = ajvFormats.default as unknown as typeof ajvFormats.default.default
+			addFormats(ajv)
+			return ajv
+		},
 	})
 
 	await api.init()

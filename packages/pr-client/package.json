@@ -1,8 +1,17 @@
 {
   "name": "@yologuard/pr-client",
   "version": "0.0.1-pre-alpha.1",
-  "private": true,
+  "description": "GitHub REST client for PR creation in YoloGuard",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yologuard/yologuard.git",
+    "directory": "packages/pr-client"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -11,6 +20,9 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",

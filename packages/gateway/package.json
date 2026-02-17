@@ -1,8 +1,17 @@
 {
   "name": "@yologuard/gateway",
   "version": "0.0.1-pre-alpha.1",
-  "private": true,
+  "description": "YoloGuard control plane — Fastify + OpenAPI gateway server",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yologuard/yologuard.git",
+    "directory": "packages/gateway"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -11,6 +20,10 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "files": [
+    "dist",
+    "openapi.yaml"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "node --watch dist/index.js",

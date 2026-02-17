@@ -1,12 +1,41 @@
 {
-  "name": "@yologuard/cli",
+  "name": "yologuard",
   "version": "0.0.1-pre-alpha.1",
-  "private": true,
+  "description": "Full-team guardrails for AI coding agents. Lives in Slack.",
   "type": "module",
+  "license": "MIT",
+  "author": "Viljami Kuosmanen <viljami@viljami.io>",
+  "homepage": "https://yologuard.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yologuard/yologuard.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/yologuard/yologuard/issues"
+  },
+  "keywords": [
+    "ai",
+    "coding-agents",
+    "sandbox",
+    "docker",
+    "devcontainer",
+    "security",
+    "guardrails",
+    "claude",
+    "codex"
+  ],
   "bin": {
     "yologuard": "dist/index.js"
   },
   "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
